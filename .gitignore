@@ -1,0 +1,85 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+.cache/
+.next/
+out/
+
+# Env files
+.env
+.env.* 
+!.env.example
+
+# Logs
+logs
+*.log
+*.log.*
+log.txt
+*.out
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+*.lcov
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Test files
+jest-test-results.json
+test-report.xml
+
+# MongoDB
+dump/
+*.bson
+*.mongodump
+
+# AWS uploads
+uploads/
+*.bak
+
+# React specific
+frontend/.env
+frontend/.env.*
+frontend/.vite/
+frontend/.parcel-cache
+frontend/.eslintcache
+frontend/.stylelintcache
+
+# Backend specific
+backend/.env
+backend/.env.*
+backend/.cache/
+backend/debug.log
+
+# Redis / Sessions
+*.rdb
+*.aof
+sessions/
