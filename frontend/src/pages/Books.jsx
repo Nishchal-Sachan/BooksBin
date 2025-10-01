@@ -1,16 +1,204 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Star, Filter, SortAsc } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Star, Filter, SortAsc, Search as SearchIcon } from 'lucide-react'
+import api from '../store/api/api'
+import { useDispatch, useSelector } from 'react-redux'
+import { setFilters, setPagination, setSearchQuery } from '../store/slices/uiSlice'
+import { addToCart } from '../store/slices/cartSlice'
+import toast from 'react-hot-toast'
+import { formatPrice } from '../utils/format'
 
 const Books = () => {
+  const dispatch = useDispatch()
+  const { searchQuery, filters, pagination } = useSelector((s) => s.ui)
+  const [books, setBooks] = useState([])
+  const [categories, setCategories] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  useEffect(() => {
+    fetchBooks()
+    // sync query string
+    const params = new URLSearchParams()
+    if (searchQuery) params.set('search', searchQuery)
+    Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, String(v)) })
+    params.set('page', String(pagination.currentPage))
+    setSearchParams(params)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, filters, pagination.currentPage])
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/books/categories/list')
+      setCategories(res.data.categories || [])
+    } catch {}
+  }
+
+  const fetchBooks = async () => {
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: String(pagination.currentPage || 1),
+        limit: '12',
+        sortBy: filters.sortBy || 'createdAt',
+        sortOrder: filters.sortOrder || 'desc',
+      })
+      if (searchQuery) params.append('search', searchQuery)
+      if (filters.category) params.append('category', filters.category)
+      if (filters.minPrice) params.append('minPrice', String(filters.minPrice))
+      if (filters.maxPrice) params.append('maxPrice', String(filters.maxPrice))
+      if (filters.minRating) params.append('minRating', String(filters.minRating))
+
+      const res = await api.get(`/books?${params}`)
+      setBooks(res.data.books || [])
+      dispatch(setPagination({
+        currentPage: res.data.pagination.currentPage,
+        totalPages: res.data.pagination.totalPages,
+        totalItems: res.data.pagination.totalBooks,
+      }))
+    } catch (e) {
+      toast.error('Failed to load books')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleAddToCart = async (bookId) => {
+    try {
+      await dispatch(addToCart({ bookId, quantity: 1 })).unwrap()
+      toast.success('Added to cart')
+    } catch (e) {
+      toast.error(e || 'Failed to add to cart')
+    }
+  }
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    dispatch(setPagination({ currentPage: 1 }))
+    fetchBooks()
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Books</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">Books</h1>
+
+        {/* Search and filters */}
+        <form onSubmit={handleSearch} className="bg-white shadow rounded-lg p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <SearchIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  value={searchQuery}
+                  onChange={(e) => dispatch(setSearchQuery(e.target.value))}
+                  placeholder="Search by title, author, ISBN..."
+                  className="input pl-10"
+                />
+              </div>
+            </div>
+            <select
+              value={filters.category || ''}
+              onChange={(e) => { dispatch(setFilters({ category: e.target.value })); dispatch(setPagination({ currentPage: 1 })) }}
+              className="input"
+            >
+              <option value="">All Categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <select
+                value={filters.sortBy}
+                onChange={(e) => dispatch(setFilters({ sortBy: e.target.value }))}
+                className="input"
+              >
+                <option value="createdAt">Newest</option>
+                <option value="price">Price</option>
+                <option value="ratings.average">Rating</option>
+              </select>
+              <select
+                value={filters.sortOrder}
+                onChange={(e) => dispatch(setFilters({ sortOrder: e.target.value }))}
+                className="input"
+              >
+                <option value="desc">Desc</option>
+                <option value="asc">Asc</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-3 text-right">
+            <button type="submit" className="px-4 py-2 rounded-md bg-primary-600 text-white">Apply</button>
+          </div>
+        </form>
+
+        {/* Results */}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          </div>
+        ) : books.length === 0 ? (
         <div className="text-center py-20">
-          <h2 className="text-2xl font-semibold text-gray-600 mb-4">Books Page</h2>
-          <p className="text-gray-500">This page will display the book listing with filters and search functionality.</p>
+            <Filter className="mx-auto h-24 w-24 text-gray-400" />
+            <h2 className="mt-6 text-2xl font-semibold text-gray-600">No books found</h2>
+            <p className="mt-2 text-gray-500">Try adjusting your search or filters.</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {books.map((book) => (
+                <div key={book._id} className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
+                  <Link to={`/books/${book._id}`} className="block">
+                    <img src={book.images?.[0] || '/placeholder-book.jpg'} alt={book.title} className="w-full h-56 object-cover" />
+                  </Link>
+                  <div className="p-4 flex-1 flex flex-col">
+                    <Link to={`/books/${book._id}`} className="text-sm font-medium text-gray-900 hover:text-primary-600 line-clamp-2">
+                      {book.title}
+                    </Link>
+                    <p className="text-xs text-gray-500 mt-1">by {book.author}</p>
+                    <div className="flex items-center mt-2 text-yellow-500 text-sm">
+                      <Star className="h-4 w-4 fill-yellow-400" />
+                      <span className="ml-1">{book.ratings?.average?.toFixed?.(1) || '4.0'}</span>
+                      <span className="ml-2 text-gray-400">({book.ratings?.count || 0})</span>
+                    </div>
+                    <div className="mt-3 text-lg font-semibold text-gray-900">{formatPrice(book.price)}</div>
+                    <div className="mt-4 flex gap-2 mt-auto">
+                      <button onClick={() => handleAddToCart(book._id)} className="flex-1 px-3 py-2 text-sm rounded-md bg-primary-600 text-white">Add to Cart</button>
+                      <Link to={`/books/${book._id}`} className="px-3 py-2 text-sm rounded-md border border-gray-200 text-gray-700">Details</Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <div className="mt-8 flex justify-center gap-2">
+                <button
+                  onClick={() => dispatch(setPagination({ currentPage: Math.max(1, pagination.currentPage - 1) }))}
+                  disabled={pagination.currentPage === 1}
+                  className="px-3 py-1.5 rounded border disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1.5">Page {pagination.currentPage} of {pagination.totalPages}</span>
+                <button
+                  onClick={() => dispatch(setPagination({ currentPage: Math.min(pagination.totalPages, pagination.currentPage + 1) }))}
+                  disabled={pagination.currentPage === pagination.totalPages}
+                  className="px-3 py-1.5 rounded border disabled:opacity-50"
+                >
+                  Next
+                </button>
         </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

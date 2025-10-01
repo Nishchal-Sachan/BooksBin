@@ -2,9 +2,24 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useDispatch, useSelector } from 'react-redux'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Eye, EyeOff, BookOpen } from 'lucide-react'
 import { register } from '../../store/slices/authSlice'
 import toast from 'react-hot-toast'
+
+const registerSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string(),
+  role: z.enum(['user', 'seller'], {
+    required_error: 'Please select a role'
+  })
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+})
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -16,19 +31,35 @@ const Register = () => {
   const {
     register: registerForm,
     handleSubmit,
-    watch,
     formState: { errors }
-  } = useForm()
-
-  const password = watch('password')
+  } = useForm({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      role: 'user'
+    }
+  })
 
   const onSubmit = async (data) => {
     try {
-      await dispatch(register(data)).unwrap()
-      toast.success('Registration successful! Please check your email for verification.')
-      navigate('/')
+      const resultAction = await dispatch(register(data))
+      if (register.fulfilled.match(resultAction)) {
+        toast.success('Registration successful!')
+        
+        // Redirect based on role
+        const user = resultAction.payload.user
+        
+        if (user.role === 'admin') {
+          navigate('/admin/dashboard')
+        } else if (user.role === 'seller') {
+          navigate('/seller/dashboard')
+        } else {
+          navigate('/')
+        }
+      } else {
+        toast.error(resultAction.payload || 'Registration failed')
+      }
     } catch (error) {
-      toast.error(error || 'Registration failed')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -59,13 +90,7 @@ const Register = () => {
                 Full Name
               </label>
               <input
-                {...registerForm('name', {
-                  required: 'Name is required',
-                  minLength: {
-                    value: 2,
-                    message: 'Name must be at least 2 characters'
-                  }
-                })}
+                {...registerForm('name')}
                 type="text"
                 className="mt-1 input"
                 placeholder="Enter your full name"
@@ -80,13 +105,7 @@ const Register = () => {
                 Email address
               </label>
               <input
-                {...registerForm('email', {
-                  required: 'Email is required',
-                  pattern: {
-                    value: /^\S+@\S+$/i,
-                    message: 'Invalid email address'
-                  }
-                })}
+                {...registerForm('email')}
                 type="email"
                 className="mt-1 input"
                 placeholder="Enter your email"
@@ -102,13 +121,7 @@ const Register = () => {
               </label>
               <div className="mt-1 relative">
                 <input
-                  {...registerForm('password', {
-                    required: 'Password is required',
-                    minLength: {
-                      value: 6,
-                      message: 'Password must be at least 6 characters'
-                    }
-                  })}
+                  {...registerForm('password')}
                   type={showPassword ? 'text' : 'password'}
                   className="input pr-10"
                   placeholder="Create a password"
@@ -136,10 +149,7 @@ const Register = () => {
               </label>
               <div className="mt-1 relative">
                 <input
-                  {...registerForm('confirmPassword', {
-                    required: 'Please confirm your password',
-                    validate: value => value === password || 'Passwords do not match'
-                  })}
+                  {...registerForm('confirmPassword')}
                   type={showConfirmPassword ? 'text' : 'password'}
                   className="input pr-10"
                   placeholder="Confirm your password"
@@ -166,7 +176,7 @@ const Register = () => {
                 Account Type
               </label>
               <select
-                {...registerForm('role', { required: 'Please select an account type' })}
+                {...registerForm('role')}
                 className="mt-1 input"
               >
                 <option value="user">Customer - Buy books</option>

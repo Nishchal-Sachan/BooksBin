@@ -2,9 +2,16 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useDispatch, useSelector } from 'react-redux'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Eye, EyeOff, BookOpen } from 'lucide-react'
 import { login } from '../../store/slices/authSlice'
 import toast from 'react-hot-toast'
+
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters')
+})
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -17,17 +24,32 @@ const Login = () => {
     register,
     handleSubmit,
     formState: { errors }
-  } = useForm()
-
-  const from = location.state?.from?.pathname || '/'
+  } = useForm({
+    resolver: zodResolver(loginSchema)
+  })
 
   const onSubmit = async (data) => {
     try {
-      await dispatch(login(data)).unwrap()
-      toast.success('Login successful!')
-      navigate(from, { replace: true })
+      const resultAction = await dispatch(login(data))
+      if (login.fulfilled.match(resultAction)) {
+        toast.success('Login successful!')
+        
+        // Redirect based on role
+        const from = location.state?.from?.pathname || '/'
+        const user = resultAction.payload.user
+        
+        if (user.role === 'admin') {
+          navigate('/admin/dashboard')
+        } else if (user.role === 'seller') {
+          navigate('/seller/dashboard')
+        } else {
+          navigate(from === '/login' ? '/' : from)
+        }
+      } else {
+        toast.error(resultAction.payload || 'Login failed')
+      }
     } catch (error) {
-      toast.error(error || 'Login failed')
+      toast.error('An unexpected error occurred')
     }
   }
 
@@ -58,13 +80,7 @@ const Login = () => {
                 Email address
               </label>
               <input
-                {...register('email', {
-                  required: 'Email is required',
-                  pattern: {
-                    value: /^\S+@\S+$/i,
-                    message: 'Invalid email address'
-                  }
-                })}
+                {...register('email')}
                 type="email"
                 className="mt-1 input"
                 placeholder="Enter your email"
@@ -80,13 +96,7 @@ const Login = () => {
               </label>
               <div className="mt-1 relative">
                 <input
-                  {...register('password', {
-                    required: 'Password is required',
-                    minLength: {
-                      value: 6,
-                      message: 'Password must be at least 6 characters'
-                    }
-                  })}
+                  {...register('password')}
                   type={showPassword ? 'text' : 'password'}
                   className="input pr-10"
                   placeholder="Enter your password"
