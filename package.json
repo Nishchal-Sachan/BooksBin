@@ -11,8 +11,14 @@
     "build": "cd frontend && npm run build",
     "start": "cd backend && npm start"
   },
-  "keywords": ["ecommerce", "books", "nodejs", "react", "mongodb"],
-  "author": "Your Name",
+  "keywords": [
+    "ecommerce",
+    "books",
+    "nodejs",
+    "react",
+    "mongodb"
+  ],
+  "author": "Nishchal Sachan",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"

@@ -6,20 +6,23 @@ import api from '../../store/api/api'
 import { uploadImageToCloudinary, validateImageFile } from '../../utils/upload'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 
+// ✅ Schema fix: category & description required by backend, isbn length >= 10
 const schema = z.object({
-  title: z.string().min(2),
-  author: z.string().min(2),
-  price: z.coerce.number().positive(),
-  isbn: z.string().min(5),
-  stock: z.coerce.number().int().nonnegative(),
-  category: z.string().optional(),
-  description: z.string().optional(),
+  title: z.string().min(2, "Title is required"),
+  author: z.string().min(2, "Author is required"),
+  price: z.coerce.number().positive("Price must be positive"),
+  isbn: z.string().min(10, "Enter a valid ISBN"),
+  stock: z.coerce.number().int().nonnegative("Stock cannot be negative"),
+  category: z.string().min(2, "Category is required"),
+  description: z.string().min(10, "Description is required"),
   imageUrl: z.string().url('Enter a valid image URL').optional(),
 })
 
 const AddBook = () => {
   const navigate = useNavigate()
+  const { user } = useSelector((state) => state.auth) // ✅ ensure seller ID is included
   const [isLoading, setIsLoading] = useState(false)
   const { register, handleSubmit, formState: { errors }, reset } = useForm({ resolver: zodResolver(schema) })
   const [file, setFile] = useState(null)
@@ -36,8 +39,11 @@ const AddBook = () => {
           setIsLoading(false)
           return
         }
-        imageUrl = await uploadImageToCloudinary(file)
+        // ✅ returns { url, publicId } from Cloudinary helper
+        const uploadRes = await uploadImageToCloudinary(file)
+        imageUrl = uploadRes?.url
       }
+
       const payload = {
         title: data.title,
         author: data.author,
@@ -46,12 +52,16 @@ const AddBook = () => {
         stock: data.stock,
         category: data.category,
         description: data.description,
-        images: imageUrl ? [imageUrl] : [],
+        images: imageUrl ? [{ url: imageUrl, isPrimary: true }] : [],
+        seller: user?._id || undefined, // ✅ required in backend
       }
+
       const res = await api.post('/books', payload)
-      toast.success('Book added')
+      toast.success('Book added successfully!')
+      reset()
       navigate('/seller/books')
     } catch (e) {
+      console.error(e)
       toast.error(e.response?.data?.message || 'Failed to add book')
     } finally {
       setIsLoading(false)
@@ -94,10 +104,12 @@ const AddBook = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700">Category</label>
             <input {...register('category')} className="mt-1 input" placeholder="Category" />
+            {errors.category && <p className="text-sm text-red-600 mt-1">{errors.category.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Description</label>
             <textarea {...register('description')} className="mt-1 input" rows={4} placeholder="Description" />
+            {errors.description && <p className="text-sm text-red-600 mt-1">{errors.description.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Image URL</label>
@@ -107,12 +119,21 @@ const AddBook = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Or Upload Image (JPG/PNG, max 2MB)</label>
-            <input type="file" accept="image/jpeg,image/png" onChange={(e) => { setFileError(''); setFile(e.target.files?.[0] || null) }} className="mt-1 block w-full text-sm" />
+            <input 
+              type="file" 
+              accept="image/jpeg,image/png" 
+              onChange={(e) => { setFileError(''); setFile(e.target.files?.[0] || null) }} 
+              className="mt-1 block w-full text-sm" 
+            />
             {fileError && <p className="text-sm text-red-600 mt-1">{fileError}</p>}
           </div>
 
           <div className="pt-4">
-            <button type="submit" disabled={isLoading} className="px-4 py-2 rounded-md bg-primary-600 text-white disabled:opacity-50">
+            <button 
+              type="submit" 
+              disabled={isLoading} 
+              className="px-4 py-2 rounded-md bg-primary-600 text-white disabled:opacity-50"
+            >
               {isLoading ? 'Saving...' : 'Add Book'}
             </button>
           </div>

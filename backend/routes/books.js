@@ -149,6 +149,7 @@ router.get('/:id/related', validateObjectId('id'), async (req, res) => {
 // Create book (seller only)
 router.post('/', authenticate, authorize('seller', 'admin'), validateBook, async (req, res) => {
   try {
+    console.log("Incoming book data:", req.body); // 👈 log request
     const bookData = {
       ...req.body,
       seller: req.user._id
@@ -160,7 +161,7 @@ router.post('/', authenticate, authorize('seller', 'admin'), validateBook, async
     const populatedBook = await Book.findById(book._id)
       .populate('seller', 'name email');
 
-    res.status(201).json({ book: populatedBook });
+    res.status(201).json({ book: populatedBook, message: 'Book created successfully' });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ message: 'Book with this ISBN already exists' });
@@ -189,7 +190,7 @@ router.put('/:id', authenticate, validateObjectId('id'), validateBook, async (re
       { new: true, runValidators: true }
     ).populate('seller', 'name email');
 
-    res.json({ book: updatedBook });
+    res.json({ book: updatedBook, message: 'Book updated successfully' });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ message: 'Book with this ISBN already exists' });

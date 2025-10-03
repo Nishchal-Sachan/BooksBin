@@ -17,7 +17,11 @@ const bookSchema = new mongoose.Schema({
     type: String,
     required: [true, 'ISBN is required'],
     unique: true,
-    match: [/^(?:ISBN(?:-1[03])?:? )?(?=[0-9X]{10}$|(?=(?:[0-9]+[- ]){3})[- 0-9X]{13}$|97[89][0-9]{10}$|(?=(?:[0-9]+[- ]){4})[- 0-9]{17}$)(?:97[89][- ]?)?[0-9]{1,5}[- ]?[0-9]+[- ]?[0-9]+[- ]?[0-9X]$/, 'Please enter a valid ISBN']
+    // FIX: regex now accepts ISBN-10 or ISBN-13 with optional dashes/spaces
+    match: [
+      /^(97(8|9))?\d{9}(\d|X)$|^(97(8|9))?[\d- ]{10,17}$/,
+      'Please enter a valid ISBN (ISBN-10 or ISBN-13)'
+    ]
   },
   description: {
     type: String,
@@ -27,7 +31,12 @@ const bookSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Category is required'],
-    enum: ['fiction', 'non-fiction', 'mystery', 'romance', 'thriller', 'sci-fi', 'fantasy', 'biography', 'history', 'self-help', 'business', 'technology', 'science', 'art', 'children', 'textbook', 'other']
+    enum: [
+      'fiction', 'non-fiction', 'mystery', 'romance', 'thriller',
+      'sci-fi', 'fantasy', 'biography', 'history', 'self-help',
+      'business', 'technology', 'science', 'art', 'children',
+      'textbook', 'other'
+    ]
   },
   price: {
     type: Number,
@@ -116,7 +125,7 @@ bookSchema.index({ 'ratings.average': -1 });
 bookSchema.index({ createdAt: -1 });
 
 // Virtual for discount percentage
-bookSchema.virtual('discountPercentage').get(function() {
+bookSchema.virtual('discountPercentage').get(function () {
   if (this.originalPrice && this.originalPrice > this.price) {
     return Math.round(((this.originalPrice - this.price) / this.originalPrice) * 100);
   }

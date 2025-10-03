@@ -5,6 +5,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { isAuthenticated, user, isLoading } = useSelector((state) => state.auth)
   const location = useLocation()
 
+  // While auth state is loading (rehydration / token check)
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -13,15 +14,19 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     )
   }
 
+  // Not logged in → redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
+  // If roles are defined and user doesn't match → unauthorized
   if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/unauthorized" replace /> 
+    // (better UX than sending them to "/")
   }
 
+  // Authenticated and allowed → render children
   return children
 }
 
-export default ProtectedRoute
+export default ProtectedRoute;
