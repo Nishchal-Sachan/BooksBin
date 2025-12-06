@@ -17,7 +17,7 @@ export async function uploadImageToCloudinary(file) {
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
 
   if (!cloudName || !uploadPreset) {
-    throw new Error('Cloudinary is not configured. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET')
+    throw new Error('Cloudinary is not configured. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in frontend/.env')
   }
 
   const formData = new FormData()
@@ -35,7 +35,11 @@ export async function uploadImageToCloudinary(file) {
   }
 
   const data = await response.json()
-  return data.secure_url
+  return {
+    url: data.secure_url,
+    publicId: data.public_id
+  }
 }
+
 
 

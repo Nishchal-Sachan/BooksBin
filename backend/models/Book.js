@@ -32,10 +32,10 @@ const bookSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
     enum: [
-      'fiction', 'non-fiction', 'mystery', 'romance', 'thriller',
-      'sci-fi', 'fantasy', 'biography', 'history', 'self-help',
-      'business', 'technology', 'science', 'art', 'children',
-      'textbook', 'other'
+      'Fiction', 'Non-Fiction', 'Science & Technology', 'Biographies', 'Children',
+      'Comics & Graphic Novels', 'Education & Reference', 'History', 'Self-Help',
+      'Business & Economics', 'Fantasy', 'Mystery & Thriller', 'Romance',
+      'Health & Wellness', 'Other'
     ]
   },
   price: {

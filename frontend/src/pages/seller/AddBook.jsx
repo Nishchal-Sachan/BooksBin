@@ -28,6 +28,25 @@ const AddBook = () => {
   const [file, setFile] = useState(null)
   const [fileError, setFileError] = useState('')
 
+  // ✅ Suggested categories (you can adjust these as per backend seed data)
+  const categories = [
+    "Fiction",
+    "Non-Fiction",
+    "Science & Technology",
+    "Biographies",
+    "Children",
+    "Comics & Graphic Novels",
+    "Education & Reference",
+    "History",
+    "Self-Help",
+    "Business & Economics",
+    "Fantasy",
+    "Mystery & Thriller",
+    "Romance",
+    "Health & Wellness",
+    "Other"
+  ]
+
   const onSubmit = async (data) => {
     setIsLoading(true)
     try {
@@ -101,11 +120,19 @@ const AddBook = () => {
               {errors.stock && <p className="text-sm text-red-600 mt-1">{errors.stock.message}</p>}
             </div>
           </div>
+
+          {/* ✅ Dropdown for categories */}
           <div>
             <label className="block text-sm font-medium text-gray-700">Category</label>
-            <input {...register('category')} className="mt-1 input" placeholder="Category" />
+            <select {...register('category')} className="mt-1 input">
+              <option value="">-- Select a Category --</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
             {errors.category && <p className="text-sm text-red-600 mt-1">{errors.category.message}</p>}
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">Description</label>
             <textarea {...register('description')} className="mt-1 input" rows={4} placeholder="Description" />

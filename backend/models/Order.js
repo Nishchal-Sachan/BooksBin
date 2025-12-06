@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    unique: true,
     required: true
   },
   customer: {
@@ -63,13 +62,17 @@ const orderSchema = new mongoose.Schema({
     },
     transactionId: String,
     paymentIntentId: String,
+    // Razorpay specific fields
+    razorpayOrderId: String,
+    razorpayPaymentId: String,
+    razorpaySignature: String,
     amount: {
       type: Number,
       required: true
     },
     currency: {
       type: String,
-      default: 'usd'
+      default: 'inr'
     }
   },
   status: {
@@ -124,7 +127,7 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Generate order number before saving
-orderSchema.pre('save', async function(next) {
+orderSchema.pre('save', async function (next) {
   if (this.isNew && !this.orderNumber) {
     const count = await mongoose.model('Order').countDocuments();
     this.orderNumber = `ORD-${Date.now()}-${(count + 1).toString().padStart(4, '0')}`;

@@ -4,8 +4,7 @@ const cartSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    unique: true
+    required: true
   },
   items: [{
     book: {
@@ -32,12 +31,12 @@ const cartSchema = new mongoose.Schema({
 cartSchema.index({ user: 1 });
 
 // Virtual for total items count
-cartSchema.virtual('totalItems').get(function() {
+cartSchema.virtual('totalItems').get(function () {
   return this.items.reduce((total, item) => total + item.quantity, 0);
 });
 
 // Virtual for total price
-cartSchema.virtual('totalPrice').get(function() {
+cartSchema.virtual('totalPrice').get(function () {
   return this.items.reduce((total, item) => {
     return total + (item.book.price * item.quantity);
   }, 0);

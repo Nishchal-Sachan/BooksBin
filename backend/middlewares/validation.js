@@ -68,14 +68,18 @@ const validateBook = [
     .isLength({ min: 1, max: 100 })
     .withMessage('Author must be between 1 and 100 characters'),
   body('isbn')
-    .matches(/^(?:ISBN(?:-1[03])?:? )?(?=[0-9X]{10}$|(?=(?:[0-9]+[- ]){3})[- 0-9X]{13}$|97[89][0-9]{10}$|(?=(?:[0-9]+[- ]){4})[- 0-9]{17}$)(?:97[89][- ]?)?[0-9]{1,5}[- ]?[0-9]+[- ]?[0-9]+[- ]?[0-9X]$/)
-    .withMessage('Please provide a valid ISBN'),
+    .trim()
+    .isLength({ min: 10, max: 17 })
+    .withMessage('ISBN must be between 10 and 17 characters'),
   body('description')
     .trim()
     .isLength({ min: 10, max: 2000 })
     .withMessage('Description must be between 10 and 2000 characters'),
   body('category')
-    .isIn(['fiction', 'non-fiction', 'mystery', 'romance', 'thriller', 'sci-fi', 'fantasy', 'biography', 'history', 'self-help', 'business', 'technology', 'science', 'art', 'children', 'textbook', 'other'])
+    .isIn(['Fiction', 'Non-Fiction', 'Science & Technology', 'Biographies', 'Children',
+      'Comics & Graphic Novels', 'Education & Reference', 'History', 'Self-Help',
+      'Business & Economics', 'Fantasy', 'Mystery & Thriller', 'Romance',
+      'Health & Wellness', 'Other'])
     .withMessage('Invalid category'),
   body('price')
     .isFloat({ min: 0 })
@@ -121,30 +125,37 @@ const validateOrder = [
   body('shippingAddress')
     .isObject()
     .withMessage('Shipping address is required'),
-  body('shippingAddress.name')
+  body('shippingAddress.firstName')
     .trim()
     .notEmpty()
-    .withMessage('Shipping name is required'),
-  body('shippingAddress.street')
+    .withMessage('First name is required'),
+  body('shippingAddress.lastName')
     .trim()
     .notEmpty()
-    .withMessage('Shipping street is required'),
+    .withMessage('Last name is required'),
+  body('shippingAddress.email')
+    .isEmail()
+    .withMessage('Valid email is required'),
+  body('shippingAddress.address')
+    .trim()
+    .notEmpty()
+    .withMessage('Address is required'),
   body('shippingAddress.city')
     .trim()
     .notEmpty()
-    .withMessage('Shipping city is required'),
+    .withMessage('City is required'),
   body('shippingAddress.state')
     .trim()
     .notEmpty()
-    .withMessage('Shipping state is required'),
+    .withMessage('State is required'),
   body('shippingAddress.zipCode')
     .trim()
     .notEmpty()
-    .withMessage('Shipping zip code is required'),
+    .withMessage('Zip code is required'),
   body('shippingAddress.country')
     .trim()
     .notEmpty()
-    .withMessage('Shipping country is required'),
+    .withMessage('Country is required'),
   handleValidationErrors
 ];
 

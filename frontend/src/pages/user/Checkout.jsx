@@ -4,21 +4,17 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useDispatch, useSelector } from 'react-redux'
-import { loadStripe } from '@stripe/stripe-js'
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { CreditCard, MapPin, User, ShoppingBag, Lock } from 'lucide-react'
+import { MapPin, ShoppingBag, Lock, CreditCard } from 'lucide-react'
 import { getCart } from '../../store/slices/cartSlice'
 import api from '../../store/api/api'
 import toast from 'react-hot-toast'
 import { formatPrice } from '../../utils/format'
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_key_here')
-
 const checkoutSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
   lastName: z.string().min(2, 'Last name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
-  phone: z.string().optional(),
+  phone: z.string().min(10, 'Please enter a valid phone number'),
   address: z.string().min(5, 'Address must be at least 5 characters'),
   city: z.string().min(2, 'City must be at least 2 characters'),
   state: z.string().min(2, 'State must be at least 2 characters'),
@@ -40,11 +36,20 @@ const checkoutSchema = z.object({
   path: ["billingAddress"]
 })
 
+// Load Razorpay script dynamically
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
+
 const CheckoutForm = ({ cart, totals, onSuccess }) => {
-  const stripe = useStripe()
-  const elements = useElements()
   const [isProcessing, setIsProcessing] = useState(false)
-  const [clientSecret, setClientSecret] = useState('')
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false)
 
   const {
     register,
@@ -61,32 +66,30 @@ const CheckoutForm = ({ cart, totals, onSuccess }) => {
   const billingSameAsShipping = watch('billingSameAsShipping')
 
   useEffect(() => {
-    if (cart && cart.items && cart.items.length > 0) {
-      createPaymentIntent()
-    }
-  }, [cart])
-
-  const createPaymentIntent = async () => {
-    try {
-      const response = await api.post('/payment/create-payment-intent', {
-        amount: totals.total,
-        currency: 'usd'
-      })
-      setClientSecret(response.data.clientSecret)
-    } catch (error) {
-      toast.error('Failed to initialize payment')
-    }
-  }
+    // Load Razorpay script on component mount
+    loadRazorpayScript().then((loaded) => {
+      setRazorpayLoaded(loaded)
+      if (!loaded) {
+        toast.error('Failed to load payment gateway. Please refresh the page.')
+      }
+    })
+  }, [])
 
   const onSubmit = async (data) => {
-    if (!stripe || !elements || !clientSecret) {
+    if (!razorpayLoaded) {
+      toast.error('Payment gateway not loaded. Please refresh the page.')
+      return
+    }
+
+    if (!cart || !cart.items || cart.items.length === 0) {
+      toast.error('Your cart is empty')
       return
     }
 
     setIsProcessing(true)
 
     try {
-      // Create order first
+      // Step 1: Create order on backend
       const orderData = {
         items: cart.items.map(item => ({
           book: item.book._id,
@@ -125,63 +128,76 @@ const CheckoutForm = ({ cart, totals, onSuccess }) => {
           zipCode: data.billingZipCode,
           country: data.billingCountry
         },
-        paymentMethod: 'stripe'
+        paymentMethod: 'razorpay'
       }
 
       const orderResponse = await api.post('/orders', orderData)
       const order = orderResponse.data.order
 
-      // Confirm payment
-      const { error } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement),
-          billing_details: {
-            name: `${data.firstName} ${data.lastName}`,
-            email: data.email,
-            phone: data.phone,
-            address: {
-              line1: data.address,
-              city: data.city,
-              state: data.state,
-              postal_code: data.zipCode,
-              country: data.country
-            }
-          }
-        }
+      // Step 2: Create Razorpay order
+      const paymentResponse = await api.post('/payment/create-order', {
+        amount: totals.total,
+        currency: 'INR',
+        orderId: order._id
       })
 
-      if (error) {
-        toast.error(error.message)
-      } else {
-        // Confirm payment on backend
-        await api.post('/payment/confirm-payment', {
-          paymentIntentId: order.payment.paymentIntentId,
-          orderId: order._id
-        })
+      const { orderId: razorpayOrderId, amount, currency, keyId } = paymentResponse.data
 
-        toast.success('Payment successful!')
-        onSuccess(order)
+      // Step 3: Open Razorpay checkout
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: currency,
+        name: 'BookStore',
+        description: `Order #${order.orderNumber}`,
+        order_id: razorpayOrderId,
+        prefill: {
+          name: `${data.firstName} ${data.lastName}`,
+          email: data.email,
+          contact: data.phone
+        },
+        theme: {
+          color: '#4F46E5'
+        },
+        handler: async function (response) {
+          try {
+            // Step 4: Verify payment on backend
+            const verifyResponse = await api.post('/payment/verify', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              orderId: order._id
+            })
+
+            if (verifyResponse.data.success) {
+              toast.success('Payment successful!')
+              onSuccess(verifyResponse.data.order)
+            } else {
+              toast.error('Payment verification failed')
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error)
+            toast.error(error.response?.data?.message || 'Payment verification failed')
+          } finally {
+            setIsProcessing(false)
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessing(false)
+            toast.error('Payment cancelled')
+          }
+        }
       }
+
+      const razorpay = new window.Razorpay(options)
+      razorpay.open()
+
     } catch (error) {
+      console.error('Checkout error:', error)
       toast.error(error.response?.data?.message || 'Checkout failed')
-    } finally {
       setIsProcessing(false)
     }
-  }
-
-  const cardElementOptions = {
-    style: {
-      base: {
-        fontSize: '16px',
-        color: '#424770',
-        '::placeholder': {
-          color: '#aab7c4',
-        },
-      },
-      invalid: {
-        color: '#9e2146',
-      },
-    },
   }
 
   return (
@@ -236,6 +252,9 @@ const CheckoutForm = ({ cart, totals, onSuccess }) => {
             className="mt-1 input"
             placeholder="Phone number"
           />
+          {errors.phone && (
+            <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+          )}
         </div>
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700">Address</label>
@@ -379,10 +398,13 @@ const CheckoutForm = ({ cart, totals, onSuccess }) => {
           <CreditCard className="h-5 w-5 mr-2" />
           Payment Information
         </h3>
-        <div className="border border-gray-300 rounded-md p-4">
-          <CardElement options={cardElementOptions} />
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+          <p className="text-sm text-blue-800">
+            You will be redirected to Razorpay secure payment gateway to complete your payment.
+            We accept Credit Cards, Debit Cards, UPI, Net Banking, and Wallets.
+          </p>
         </div>
-        <p className="mt-2 text-sm text-gray-500 flex items-center">
+        <p className="mt-4 text-sm text-gray-500 flex items-center">
           <Lock className="h-4 w-4 mr-1" />
           Your payment information is secure and encrypted
         </p>
@@ -390,7 +412,7 @@ const CheckoutForm = ({ cart, totals, onSuccess }) => {
 
       <button
         type="submit"
-        disabled={!stripe || isProcessing}
+        disabled={!razorpayLoaded || isProcessing}
         className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isProcessing ? (
@@ -399,7 +421,7 @@ const CheckoutForm = ({ cart, totals, onSuccess }) => {
             Processing...
           </div>
         ) : (
-          `Complete Order - ${formatPrice(totals.total)}`
+          `Proceed to Payment - ${formatPrice(totals.total)}`
         )}
       </button>
     </form>
@@ -473,19 +495,17 @@ const Checkout = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Checkout Form */}
           <div>
-            <Elements stripe={stripePromise}>
-              <CheckoutForm cart={{ items }} totals={totals} onSuccess={handleSuccess} />
-            </Elements>
+            <CheckoutForm cart={{ items }} totals={totals} onSuccess={handleSuccess} />
           </div>
 
           {/* Order Summary */}
           <div className="bg-white shadow rounded-lg p-6 h-fit">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Order Summary</h3>
-            
+
             <div className="space-y-4">
               {items.map((item) => (
                 <div key={item.book._id} className="flex items-center space-x-4">

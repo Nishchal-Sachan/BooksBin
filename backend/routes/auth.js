@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { generateToken, generateRefreshToken, authenticate } = require('../middlewares/auth');
 const { validateUserRegistration, validateUserLogin, validatePasswordReset, validatePasswordUpdate } = require('../middlewares/validation');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -33,8 +34,13 @@ router.post('/register', validateUserRegistration, async (req, res) => {
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // TODO: Send verification email
-    // await sendVerificationEmail(user.email, user.emailVerificationToken);
+    // Send verification email
+    try {
+      await sendVerificationEmail(user.email, user.emailVerificationToken);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Continue anyway, user can request resend later
+    }
 
     res.status(201).json({
       message: 'User registered successfully. Please check your email for verification.',
@@ -186,8 +192,13 @@ router.post('/forgot-password', validatePasswordReset, async (req, res) => {
     user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    // TODO: Send reset email
-    // await sendPasswordResetEmail(user.email, resetToken);
+    // Send reset email
+    try {
+      await sendPasswordResetEmail(user.email, resetToken);
+    } catch (emailError) {
+      console.error('Failed to send reset email:', emailError);
+      return res.status(500).json({ message: 'Failed to send password reset email' });
+    }
 
     res.json({ message: 'Password reset email sent' });
   } catch (error) {

@@ -1,179 +1,229 @@
 const express = require('express');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
 const Order = require('../models/Order');
+const Cart = require('../models/Cart');
 const { authenticate } = require('../middlewares/auth');
 
 const router = express.Router();
 
-// Create payment intent
-router.post('/create-payment-intent', authenticate, async (req, res) => {
+// Initialize Razorpay instance only if credentials are available
+let razorpay = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET
+  });
+  console.log('Razorpay initialized successfully');
+} else {
+  console.warn('⚠️  Razorpay credentials not configured. Payment endpoints will not work.');
+  console.warn('   Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to your .env file');
+}
+
+/**
+ * POST /api/payment/create-order
+ * Create a Razorpay order for checkout
+ */
+router.post('/create-order', authenticate, async (req, res) => {
   try {
-    const { amount, currency = 'usd', orderId } = req.body;
+    // Check if Razorpay is configured
+    if (!razorpay) {
+      return res.status(503).json({
+        message: 'Payment service not configured. Please contact administrator.'
+      });
+    }
+
+    const { amount, currency = 'INR', orderId } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: 'Invalid amount' });
     }
 
-    // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
-      currency,
-      metadata: {
+    // Validate order exists and belongs to user
+    if (orderId) {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+      if (order.customer.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Not authorized' });
+      }
+    }
+
+    // Create Razorpay order
+    const razorpayOrder = await razorpay.orders.create({
+      amount: Math.round(amount * 100), // Convert to paise (smallest currency unit)
+      currency: currency,
+      receipt: orderId || `receipt_${Date.now()}`,
+      notes: {
         orderId: orderId || '',
         userId: req.user._id.toString()
       }
     });
 
+    // Update order with Razorpay order ID if orderId provided
+    if (orderId) {
+      await Order.findByIdAndUpdate(orderId, {
+        'payment.razorpayOrderId': razorpayOrder.id
+      });
+    }
+
     res.json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id
+      orderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      keyId: process.env.RAZORPAY_KEY_ID
     });
   } catch (error) {
-    console.error('Create payment intent error:', error);
-    res.status(500).json({ message: 'Payment processing error' });
+    console.error('Create Razorpay order error:', error);
+    res.status(500).json({
+      message: 'Payment processing error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Confirm payment
-router.post('/confirm-payment', authenticate, async (req, res) => {
+/**
+ * POST /api/payment/verify
+ * Verify Razorpay payment signature and update order status
+ */
+router.post('/verify', authenticate, async (req, res) => {
   try {
-    const { paymentIntentId, orderId } = req.body;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      orderId
+    } = req.body;
 
-    if (!paymentIntentId || !orderId) {
-      return res.status(400).json({ message: 'Payment intent ID and order ID are required' });
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderId) {
+      return res.status(400).json({
+        message: 'Missing required payment verification parameters'
+      });
     }
 
-    // Retrieve payment intent
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-    if (paymentIntent.status !== 'succeeded') {
-      return res.status(400).json({ message: 'Payment not completed' });
-    }
-
-    // Update order with payment details
+    // Find the order
     const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    // Verify user owns this order
     if (order.customer.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    // Verify the payment signature
+    const text = razorpay_order_id + '|' + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(text)
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      // Invalid signature - possible tampering
+      order.payment.status = 'failed';
+      await order.save();
+
+      return res.status(400).json({
+        message: 'Payment verification failed - invalid signature'
+      });
+    }
+
+    // Signature is valid - update order
     order.payment.status = 'completed';
-    order.payment.transactionId = paymentIntent.id;
-    order.payment.paymentIntentId = paymentIntent.id;
+    order.payment.razorpayOrderId = razorpay_order_id;
+    order.payment.razorpayPaymentId = razorpay_payment_id;
+    order.payment.razorpaySignature = razorpay_signature;
+    order.payment.transactionId = razorpay_payment_id;
     order.status = 'confirmed';
 
     await order.save();
 
-    res.json({ 
-      message: 'Payment confirmed successfully',
-      order 
+    // Clear user's cart after successful payment
+    await Cart.findOneAndUpdate(
+      { user: req.user._id },
+      { items: [] }
+    );
+
+    const populatedOrder = await Order.findById(order._id)
+      .populate('customer', 'name email')
+      .populate('items.book', 'title author images')
+      .populate('items.seller', 'name email');
+
+    res.json({
+      message: 'Payment verified successfully',
+      order: populatedOrder,
+      success: true
     });
   } catch (error) {
-    console.error('Confirm payment error:', error);
-    res.status(500).json({ message: 'Payment confirmation error' });
+    console.error('Payment verification error:', error);
+    res.status(500).json({
+      message: 'Payment verification error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Create checkout session
-router.post('/create-checkout-session', authenticate, async (req, res) => {
-  try {
-    const { items, successUrl, cancelUrl } = req.body;
-
-    if (!items || items.length === 0) {
-      return res.status(400).json({ message: 'Items are required' });
-    }
-
-    // Get book details
-    const bookIds = items.map(item => item.book);
-    const books = await Book.find({ _id: { $in: bookIds }, isActive: true });
-
-    if (books.length !== bookIds.length) {
-      return res.status(400).json({ message: 'One or more books are not available' });
-    }
-
-    // Create line items for Stripe
-    const lineItems = items.map(item => {
-      const book = books.find(b => b._id.toString() === item.book);
-      return {
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: book.title,
-            description: `By ${book.author}`,
-            images: book.images.length > 0 ? [book.images[0].url] : []
-          },
-          unit_amount: Math.round(book.price * 100) // Convert to cents
-        },
-        quantity: item.quantity
-      };
-    });
-
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: lineItems,
-      mode: 'payment',
-      success_url: successUrl || `${process.env.FRONTEND_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl || `${process.env.FRONTEND_URL}/checkout/cancel`,
-      customer_email: req.user.email,
-      metadata: {
-        userId: req.user._id.toString()
-      }
-    });
-
-    res.json({ sessionId: session.id, url: session.url });
-  } catch (error) {
-    console.error('Create checkout session error:', error);
-    res.status(500).json({ message: 'Checkout session creation error' });
-  }
-});
-
-// Handle Stripe webhook
+/**
+ * POST /api/payment/webhook
+ * Handle Razorpay webhook events
+ */
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    const webhookSignature = req.headers['x-razorpay-signature'];
 
-  try {
-    // Handle the event
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        const paymentIntent = event.data.object;
-        console.log('PaymentIntent succeeded:', paymentIntent.id);
-        
-        // Update order status if needed
-        if (paymentIntent.metadata.orderId) {
-          await Order.findByIdAndUpdate(paymentIntent.metadata.orderId, {
+    if (!webhookSecret) {
+      console.warn('Razorpay webhook secret not configured');
+      return res.status(500).json({ error: 'Webhook not configured' });
+    }
+
+    // Verify webhook signature
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    if (expectedSignature !== webhookSignature) {
+      console.error('Invalid webhook signature');
+      return res.status(400).json({ error: 'Invalid signature' });
+    }
+
+    const event = req.body.event;
+    const payload = req.body.payload.payment.entity;
+
+    console.log('Razorpay webhook event:', event);
+
+    // Handle different webhook events
+    switch (event) {
+      case 'payment.captured':
+        // Payment was successful
+        const orderId = payload.notes?.orderId;
+        if (orderId) {
+          await Order.findByIdAndUpdate(orderId, {
             'payment.status': 'completed',
-            'payment.transactionId': paymentIntent.id,
-            'payment.paymentIntentId': paymentIntent.id,
+            'payment.razorpayPaymentId': payload.id,
+            'payment.transactionId': payload.id,
             status: 'confirmed'
           });
+          console.log(`Order ${orderId} payment captured via webhook`);
         }
         break;
 
-      case 'checkout.session.completed':
-        const session = event.data.object;
-        console.log('Checkout session completed:', session.id);
-        
-        // Create order from checkout session
-        if (session.metadata.userId) {
-          // This would require storing session data and recreating the order
-          // Implementation depends on your specific needs
+      case 'payment.failed':
+        // Payment failed
+        const failedOrderId = payload.notes?.orderId;
+        if (failedOrderId) {
+          await Order.findByIdAndUpdate(failedOrderId, {
+            'payment.status': 'failed'
+          });
+          console.log(`Order ${failedOrderId} payment failed via webhook`);
         }
         break;
 
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        console.log(`Unhandled webhook event: ${event}`);
     }
 
     res.json({ received: true });
@@ -183,53 +233,21 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   }
 });
 
-// Get payment methods
+/**
+ * GET /api/payment/payment-methods
+ * Get available payment methods
+ */
 router.get('/payment-methods', authenticate, async (req, res) => {
   try {
-    // In a real implementation, you might want to store customer IDs
-    // and retrieve their payment methods
-    res.json({ 
+    res.json({
       methods: [
-        { id: 'card', name: 'Credit/Debit Card', type: 'card' },
-        { id: 'paypal', name: 'PayPal', type: 'paypal' }
+        { id: 'razorpay', name: 'Cards, UPI, Netbanking, Wallets', type: 'razorpay' },
+        { id: 'cod', name: 'Cash on Delivery', type: 'cod' }
       ]
     });
   } catch (error) {
     console.error('Get payment methods error:', error);
     res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Refund payment
-router.post('/refund', authenticate, async (req, res) => {
-  try {
-    const { paymentIntentId, amount, reason } = req.body;
-
-    if (!paymentIntentId) {
-      return res.status(400).json({ message: 'Payment intent ID is required' });
-    }
-
-    const refund = await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      amount: amount ? Math.round(amount * 100) : undefined, // Partial refund if amount specified
-      reason: reason || 'requested_by_customer'
-    });
-
-    // Update order status
-    const order = await Order.findOne({ 'payment.paymentIntentId': paymentIntentId });
-    if (order) {
-      order.payment.status = 'refunded';
-      order.status = 'cancelled';
-      await order.save();
-    }
-
-    res.json({ 
-      message: 'Refund processed successfully',
-      refund 
-    });
-  } catch (error) {
-    console.error('Refund error:', error);
-    res.status(500).json({ message: 'Refund processing error' });
   }
 });
 

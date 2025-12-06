@@ -26,10 +26,10 @@ router.post('/', authenticate, validateOrder, async (req, res) => {
 
     for (const item of items) {
       const book = books.find(b => b._id.toString() === item.book);
-      
+
       if (book.stock < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient stock for "${book.title}". Available: ${book.stock}` 
+        return res.status(400).json({
+          message: `Insufficient stock for "${book.title}". Available: ${book.stock}`
         });
       }
 
@@ -77,20 +77,17 @@ router.post('/', authenticate, validateOrder, async (req, res) => {
       });
     }
 
-    // Clear user's cart
-    await Cart.findOneAndUpdate(
-      { user: req.user._id },
-      { items: [] }
-    );
+    // NOTE: Cart is NOT cleared here - it will be cleared after payment verification
+    // This prevents cart from being cleared if payment fails
 
     const populatedOrder = await Order.findById(order._id)
       .populate('customer', 'name email')
       .populate('items.book', 'title author images')
       .populate('items.seller', 'name email');
 
-    res.status(201).json({ 
+    res.status(201).json({
       message: 'Order created successfully',
-      order: populatedOrder 
+      order: populatedOrder
     });
   } catch (error) {
     console.error('Create order error:', error);
@@ -145,9 +142,9 @@ router.get('/:id', authenticate, validateObjectId('id'), async (req, res) => {
     }
 
     // Check if user is authorized to view this order
-    if (order.customer._id.toString() !== req.user._id.toString() && 
-        !order.items.some(item => item.seller._id.toString() === req.user._id.toString()) &&
-        req.user.role !== 'admin') {
+    if (order.customer._id.toString() !== req.user._id.toString() &&
+      !order.items.some(item => item.seller._id.toString() === req.user._id.toString()) &&
+      req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to view this order' });
     }
 
@@ -190,9 +187,9 @@ router.patch('/:id/status', authenticate, validateObjectId('id'), async (req, re
       .populate('items.book', 'title author images')
       .populate('items.seller', 'name email');
 
-    res.json({ 
+    res.json({
       message: 'Order status updated successfully',
-      order: populatedOrder 
+      order: populatedOrder
     });
   } catch (error) {
     console.error('Update order status error:', error);
