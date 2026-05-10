@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../../store/api/api'
 import toast from 'react-hot-toast'
+import PageContainer from '../../components/layout/PageContainer'
+import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import Spinner from '../../components/ui/Spinner'
 
 const AdminBooks = () => {
   const [books, setBooks] = useState([])
@@ -59,62 +63,125 @@ const AdminBooks = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Manage Books</h1>
-          <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value) }} className="input w-auto">
+    <div className="min-h-screen bg-surface-subtle py-8 md:py-10">
+      <PageContainer>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-h1 md:text-display">Manage books</h1>
+          <select
+            value={status}
+            onChange={(e) => {
+              setPage(1)
+              setStatus(e.target.value)
+            }}
+            className="select-field w-full sm:w-auto"
+            aria-label="Filter by status"
+          >
             <option value="">All</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
         </div>
 
-        <form onSubmit={handleSearch} className="bg-white shadow rounded-lg p-4 mb-6">
-          <div className="flex gap-2">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} className="input flex-1" placeholder="Search by title or author" />
-            <button className="px-4 py-2 rounded-md bg-primary-600 text-white">Search</button>
-          </div>
-        </form>
+        <Card className="mb-6 p-4 shadow-card md:p-6">
+          <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-field flex-1"
+              placeholder="Search by title or author"
+            />
+            <Button type="submit" className="sm:w-auto">
+              Search
+            </Button>
+          </form>
+        </Card>
 
         {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="flex h-64 items-center justify-center">
+            <Spinner size="lg" />
           </div>
         ) : books.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">No books.</div>
+          <div className="py-20 text-center text-body text-neutral-500">
+            No books.
+          </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {books.map((b) => (
-                <div key={b._id} className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
-                  <img src={b.images?.[0] || '/placeholder-book.jpg'} alt={b.title} className="w-full h-48 object-cover" />
-                  <div className="p-4 flex-1 flex flex-col">
-                    <div className="font-medium text-gray-900 line-clamp-2">{b.title}</div>
-                    <div className="text-xs text-gray-500 mt-1">{b.author}</div>
-                    <div className="mt-3 text-sm">Seller: {b.seller?.name || '—'}</div>
-                    <div className="mt-auto flex gap-2">
-                      <select value={b.isActive ? 'active' : 'inactive'} onChange={(e) => updateStatus(b._id, e.target.value === 'active')} className="px-3 py-1.5 text-sm rounded-md border">
+                <Card
+                  key={b._id}
+                  interactive={false}
+                  className="flex flex-col overflow-hidden p-0 shadow-card"
+                >
+                  <img
+                    src={b.images?.[0] || '/placeholder-book.jpg'}
+                    alt={b.title}
+                    className="h-48 w-full object-cover"
+                  />
+                  <div className="flex flex-1 flex-col p-4">
+                    <div className="line-clamp-2 font-medium text-neutral-900">
+                      {b.title}
+                    </div>
+                    <div className="mt-1 text-small text-neutral-500">
+                      {b.author}
+                    </div>
+                    <div className="mt-3 text-body-sm text-neutral-600">
+                      Seller: {b.seller?.name || '—'}
+                    </div>
+                    <div className="mt-auto flex flex-wrap gap-2 pt-4">
+                      <select
+                        value={b.isActive ? 'active' : 'inactive'}
+                        onChange={(e) =>
+                          updateStatus(b._id, e.target.value === 'active')
+                        }
+                        className="select-field min-w-0 flex-1 py-2 text-small"
+                      >
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                       </select>
-                      <button onClick={() => handleDelete(b._id)} className="px-3 py-1.5 text-sm rounded-md border border-red-300 text-red-600">Delete</button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-error/30 text-error hover:bg-error-muted"
+                        onClick={() => handleDelete(b._id)}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
 
             {totalPages > 1 && (
-              <div className="mt-8 flex justify-center gap-2">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded border disabled:opacity-50">Previous</button>
-                <span className="px-3 py-1.5">Page {page} of {totalPages}</span>
-                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 rounded border disabled:opacity-50">Next</button>
+              <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <span className="px-3 py-2 text-body-sm text-neutral-600">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
               </div>
             )}
           </>
         )}
-      </div>
+      </PageContainer>
     </div>
   )
 }

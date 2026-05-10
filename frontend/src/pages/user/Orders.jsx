@@ -1,301 +1,202 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useDispatch, useSelector } from 'react-redux'
-import { Package, Eye, Clock, Truck, CheckCircle, XCircle, Filter } from 'lucide-react'
-import api from '../../store/api/api'
+import {
+  Package,
+  Eye,
+  Clock,
+  Truck,
+  CheckCircle,
+  XCircle,
+  Filter,
+} from 'lucide-react'
+import { MOCK_USER_ORDERS } from '../../data/mockUserOrders'
+import { getCombinedOrders } from '../../utils/orderHistoryStorage'
 import { formatPrice, formatDate } from '../../utils/format'
 import toast from 'react-hot-toast'
+import AccountLayout from '../../components/account/AccountLayout'
+import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import { cn } from '../../utils/cn'
 
-const Orders = () => {
-  const [orders, setOrders] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [statusFilter, setStatusFilter] = useState('')
-
-  useEffect(() => {
-    fetchOrders()
-  }, [currentPage, statusFilter])
-
-  const fetchOrders = async () => {
-    setIsLoading(true)
-    try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '10'
-      })
-      
-      if (statusFilter) {
-        params.append('status', statusFilter)
-      }
-
-      const response = await api.get(`/orders/my-orders?${params}`)
-      setOrders(response.data.orders)
-      setTotalPages(response.data.pagination.totalPages)
-    } catch (error) {
-      toast.error('Failed to fetch orders')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleCancelOrder = async (orderId) => {
-    if (window.confirm('Are you sure you want to cancel this order?')) {
-      try {
-        await api.patch(`/orders/${orderId}/cancel`, {
-          reason: 'Cancelled by customer'
-        })
-        toast.success('Order cancelled successfully')
-        fetchOrders()
-      } catch (error) {
-        toast.error(error.response?.data?.message || 'Failed to cancel order')
-      }
-    }
-  }
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'confirmed':
-      case 'processing':
-        return <Clock className="h-4 w-4" />
-      case 'shipped':
-        return <Truck className="h-4 w-4" />
-      case 'delivered':
-        return <CheckCircle className="h-4 w-4" />
-      case 'cancelled':
-        return <XCircle className="h-4 w-4" />
-      default:
-        return <Package className="h-4 w-4" />
-    }
-  }
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'confirmed':
-      case 'processing':
-        return 'bg-blue-100 text-blue-800'
-      case 'shipped':
-        return 'bg-purple-100 text-purple-800'
-      case 'delivered':
-        return 'bg-green-100 text-green-800'
-      case 'cancelled':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const canCancelOrder = (order) => {
-    return ['confirmed', 'processing'].includes(order.status)
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-          
-          {/* Status Filter */}
-          <div className="flex items-center space-x-2">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="input w-auto"
-            >
-              <option value="">All Status</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="processing">Processing</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-        </div>
-
-        {orders.length === 0 ? (
-          <div className="text-center py-20">
-            <Package className="mx-auto h-24 w-24 text-gray-400" />
-            <h2 className="mt-6 text-2xl font-semibold text-gray-600">No orders found</h2>
-            <p className="mt-2 text-gray-500">
-              {statusFilter 
-                ? `No orders with status "${statusFilter}" found.`
-                : "You haven't placed any orders yet."
-              }
-            </p>
-            {!statusFilter && (
-              <div className="mt-6">
-                <Link
-                  to="/books"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                >
-                  Start Shopping
-                </Link>
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
-                {orders.map((order) => (
-                  <li key={order._id} className="px-6 py-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          <Package className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <p className="text-sm font-medium text-gray-900">
-                              Order #{order._id.slice(-8)}
-                            </p>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                              {getStatusIcon(order.status)}
-                              <span className="ml-1">{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            Placed on {formatDate(order.createdAt)}
-                          </p>
-                          <p className="text-sm text-gray-900 font-medium">
-                            {formatPrice(order.totals.total)} • {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Link
-                          to={`/orders/${order._id}`}
-                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Link>
-                        
-                        {canCancelOrder(order) && (
-                          <button
-                            onClick={() => handleCancelOrder(order._id)}
-                            className="inline-flex items-center px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                          >
-                            Cancel Order
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Order Items Preview */}
-                    <div className="mt-4 ml-12">
-                      <div className="flex items-center space-x-4">
-                        {order.items.slice(0, 3).map((item, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <img
-                              className="h-8 w-6 object-cover rounded"
-                              src={item.book.images?.[0] || '/placeholder-book.jpg'}
-                              alt={item.book.title}
-                            />
-                            <span className="text-xs text-gray-600">
-                              {item.book.title} (×{item.quantity})
-                            </span>
-                          </div>
-                        ))}
-                        {order.items.length > 3 && (
-                          <span className="text-xs text-gray-500">
-                            +{order.items.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-between">
-                <div className="flex-1 flex justify-between sm:hidden">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
-                
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Page <span className="font-medium">{currentPage}</span> of{' '}
-                      <span className="font-medium">{totalPages}</span>
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Previous
-                      </button>
-                      
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const pageNum = currentPage <= 3 ? i + 1 : currentPage - 2 + i
-                        if (pageNum > totalPages) return null
-                        
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              currentPage === pageNum
-                                ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        )
-                      })}
-                      
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
-                    </nav>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  )
+function itemImage(book) {
+  const img = book?.images?.[0]
+  if (!img) return '/placeholder-book.jpg'
+  return typeof img === 'string' ? img : img?.url || '/placeholder-book.jpg'
 }
 
-export default Orders
+const getStatusIcon = (status) => {
+  switch (status) {
+    case 'confirmed':
+    case 'processing':
+      return <Clock className="h-4 w-4" />
+    case 'shipped':
+      return <Truck className="h-4 w-4" />
+    case 'delivered':
+      return <CheckCircle className="h-4 w-4" />
+    case 'cancelled':
+      return <XCircle className="h-4 w-4" />
+    default:
+      return <Package className="h-4 w-4" />
+  }
+}
+
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'confirmed':
+    case 'processing':
+      return 'bg-primary-100 text-primary-800'
+    case 'shipped':
+      return 'bg-secondary-100 text-secondary-800'
+    case 'delivered':
+      return 'bg-success-muted text-success-foreground'
+    case 'cancelled':
+      return 'bg-error-muted text-error-foreground'
+    default:
+      return 'bg-neutral-100 text-neutral-700'
+  }
+}
+
+export default function Orders() {
+  const [statusFilter, setStatusFilter] = useState('')
+
+  const allOrders = getCombinedOrders(MOCK_USER_ORDERS)
+
+  const orders = useMemo(() => {
+    if (!statusFilter) return allOrders
+    return allOrders.filter((o) => o.status === statusFilter)
+  }, [allOrders, statusFilter])
+
+  const handleCancelDemo = () => {
+    toast('Demo orders cannot be cancelled from this preview.', { icon: 'ℹ️' })
+  }
+
+  const canCancelDemo = (order) =>
+    ['confirmed', 'processing'].includes(order.status)
+
+  return (
+    <AccountLayout
+      title="Orders"
+      subtitle="Track deliveries and open receipts. History includes demo orders and your recent checkouts on this device."
+    >
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-body-sm text-neutral-500">
+          {orders.length} order{orders.length !== 1 ? 's' : ''}
+          {statusFilter ? ` · filtered` : ''}
+        </p>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 shrink-0 text-neutral-400" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="select-field min-w-[11rem]"
+            aria-label="Filter by status"
+          >
+            <option value="">All statuses</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="processing">Processing</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+
+      {orders.length === 0 ? (
+        <Card className="border-dashed border-neutral-200 p-12 text-center shadow-soft">
+          <Package className="mx-auto h-14 w-14 text-neutral-300" />
+          <h2 className="mt-4 text-h2 text-neutral-800">No orders</h2>
+          <p className="mt-2 text-body-sm text-neutral-500">
+            {statusFilter
+              ? 'Try clearing the filter.'
+              : 'Place an order from the shop to see it here.'}
+          </p>
+          <Button as={Link} to="/books" className="mt-6">
+            Browse books
+          </Button>
+        </Card>
+      ) : (
+        <ul className="space-y-4">
+          {orders.map((order) => (
+            <li key={order._id}>
+              <Card className="overflow-hidden border-neutral-200/90 shadow-card transition-shadow hover:shadow-card">
+                <div className="p-5 sm:p-6">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex min-w-0 gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500">
+                        <Package className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-mono text-body-sm font-semibold text-neutral-900">
+                            {order.orderNumber || order._id}
+                          </p>
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-small font-medium capitalize',
+                              getStatusColor(order.status)
+                            )}
+                          >
+                            {getStatusIcon(order.status)}
+                            {order.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-body-sm text-neutral-500">
+                          {formatDate(order.createdAt)}
+                        </p>
+                        <p className="mt-2 text-body-sm font-medium text-neutral-800">
+                          {formatPrice(order.totals?.total ?? 0)} ·{' '}
+                          {order.items.length} item
+                          {order.items.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 lg:shrink-0">
+                      <Button variant="outline" size="sm" as={Link} to={`/orders/${order._id}`}>
+                        <Eye className="mr-1 h-4 w-4" />
+                        Details
+                      </Button>
+                      {canCancelDemo(order) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-error/30 text-error hover:bg-error-muted"
+                          onClick={handleCancelDemo}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-5 flex flex-wrap gap-3 border-t border-neutral-100 pt-5">
+                    {order.items.slice(0, 4).map((item, idx) => (
+                      <div
+                        key={`${order._id}-${item.book._id}-${idx}`}
+                        className="flex items-center gap-2 rounded-lg bg-surface-subtle px-2 py-1.5"
+                      >
+                        <img
+                          className="h-9 w-7 rounded object-cover"
+                          src={itemImage(item.book)}
+                          alt=""
+                        />
+                        <span className="max-w-[10rem] truncate text-small text-neutral-600">
+                          {item.book.title}{' '}
+                          <span className="text-neutral-400">×{item.quantity}</span>
+                        </span>
+                      </div>
+                    ))}
+                    {order.items.length > 4 && (
+                      <span className="self-center text-small text-neutral-400">
+                        +{order.items.length - 4} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </AccountLayout>
+  )
+}

@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import api from '../../store/api/api'
 import toast from 'react-hot-toast'
+import PageContainer from '../../components/layout/PageContainer'
+import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import Spinner from '../../components/ui/Spinner'
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([])
@@ -58,63 +62,100 @@ const AdminUsers = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Manage Users</h1>
-          <select value={role} onChange={(e) => { setPage(1); setRole(e.target.value) }} className="input w-auto">
-            <option value="">All Roles</option>
+    <div className="min-h-screen bg-surface-subtle py-8 md:py-10">
+      <PageContainer>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-h1 md:text-display">Manage users</h1>
+          <select
+            value={role}
+            onChange={(e) => {
+              setPage(1)
+              setRole(e.target.value)
+            }}
+            className="select-field w-full sm:w-auto"
+            aria-label="Filter by role"
+          >
+            <option value="">All roles</option>
             <option value="user">User</option>
             <option value="seller">Seller</option>
             <option value="admin">Admin</option>
           </select>
         </div>
 
-        <form onSubmit={handleSearch} className="bg-white shadow rounded-lg p-4 mb-6">
-          <div className="flex gap-2">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} className="input flex-1" placeholder="Search by name or email" />
-            <button className="px-4 py-2 rounded-md bg-primary-600 text-white">Search</button>
-          </div>
-        </form>
+        <Card className="mb-6 p-4 shadow-card md:p-6">
+          <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-field flex-1"
+              placeholder="Search by name or email"
+            />
+            <Button type="submit" className="sm:w-auto">
+              Search
+            </Button>
+          </form>
+        </Card>
 
         {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="flex h-64 items-center justify-center">
+            <Spinner size="lg" />
           </div>
         ) : users.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">No users.</div>
+          <div className="py-20 text-center text-body text-neutral-500">
+            No users.
+          </div>
         ) : (
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <Card className="overflow-hidden p-0 shadow-card">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-neutral-200">
+                <thead className="bg-surface-subtle">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-2" />
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Email
+                    </th>
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Role
+                    </th>
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Status
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-neutral-100 bg-surface">
                   {users.map((u) => (
-                    <tr key={u._id}>
-                      <td className="px-4 py-2 text-sm text-gray-900">{u.name}</td>
-                      <td className="px-4 py-2 text-sm text-gray-500">{u.email}</td>
-                      <td className="px-4 py-2 text-sm">
-                        <select value={u.role} onChange={(e) => updateRole(u._id, e.target.value)} className="input w-auto">
+                    <tr key={u._id} className="transition-colors hover:bg-surface-subtle/80">
+                      <td className="whitespace-nowrap px-4 py-3 text-body-sm text-neutral-900">
+                        {u.name}
+                      </td>
+                      <td className="px-4 py-3 text-body-sm text-neutral-500">
+                        {u.email}
+                      </td>
+                      <td className="px-4 py-3 text-body-sm">
+                        <select
+                          value={u.role}
+                          onChange={(e) => updateRole(u._id, e.target.value)}
+                          className="select-field w-auto min-w-[6.5rem] py-2 text-small"
+                        >
                           <option value="user">User</option>
                           <option value="seller">Seller</option>
                           <option value="admin">Admin</option>
                         </select>
                       </td>
-                      <td className="px-4 py-2 text-sm">
-                        <select value={u.isActive ? 'active' : 'inactive'} onChange={(e) => updateStatus(u._id, e.target.value === 'active')} className="input w-auto">
+                      <td className="px-4 py-3 text-body-sm">
+                        <select
+                          value={u.isActive ? 'active' : 'inactive'}
+                          onChange={(e) =>
+                            updateStatus(u._id, e.target.value === 'active')
+                          }
+                          className="select-field w-auto py-2 text-small"
+                        >
                           <option value="active">Active</option>
                           <option value="inactive">Inactive</option>
                         </select>
                       </td>
-                      <td className="px-4 py-2 text-sm text-right"></td>
                     </tr>
                   ))}
                 </tbody>
@@ -122,15 +163,33 @@ const AdminUsers = () => {
             </div>
 
             {totalPages > 1 && (
-              <div className="px-4 py-3 border-t flex justify-center gap-2">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded border disabled:opacity-50">Previous</button>
-                <span className="px-3 py-1.5">Page {page} of {totalPages}</span>
-                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 rounded border disabled:opacity-50">Next</button>
+              <div className="flex flex-wrap items-center justify-center gap-2 border-t border-neutral-100 px-4 py-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <span className="px-3 py-2 text-body-sm text-neutral-600">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
               </div>
             )}
-          </div>
+          </Card>
         )}
-      </div>
+      </PageContainer>
     </div>
   )
 }

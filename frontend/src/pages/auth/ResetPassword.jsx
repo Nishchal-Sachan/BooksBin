@@ -1,23 +1,26 @@
 import { useState } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Lock, CheckCircle, BookOpen } from 'lucide-react'
 import api from '../../store/api/api'
 import toast from 'react-hot-toast'
+import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
 
-const resetPasswordSchema = z.object({
-  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string()
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"]
-})
+const resetPasswordSchema = z
+  .object({
+    newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  })
 
 const ResetPassword = () => {
   const { token } = useParams()
-  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -26,9 +29,9 @@ const ResetPassword = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors }
+    formState: { errors },
   } = useForm({
-    resolver: zodResolver(resetPasswordSchema)
+    resolver: zodResolver(resetPasswordSchema),
   })
 
   const onSubmit = async (data) => {
@@ -41,7 +44,7 @@ const ResetPassword = () => {
     try {
       await api.post('/auth/reset-password', {
         token,
-        newPassword: data.newPassword
+        newPassword: data.newPassword,
       })
       setIsSuccess(true)
       toast.success('Password reset successfully!')
@@ -54,168 +57,149 @@ const ResetPassword = () => {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div>
-            <div className="flex justify-center">
-              <CheckCircle className="h-12 w-12 text-green-600" />
-            </div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Password reset successful!
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              Your password has been successfully reset. You can now sign in with your new password.
-            </p>
-          </div>
-          <div className="text-center">
-            <Link
-              to="/login"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
-              Sign in to your account
-            </Link>
-          </div>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12 sm:px-6 lg:px-8">
+        <Card className="w-full max-w-md space-y-6 p-8 text-center shadow-card">
+          <CheckCircle className="mx-auto h-12 w-12 text-success" aria-hidden />
+          <h2 className="text-h1">Password reset successful</h2>
+          <p className="text-body-sm text-neutral-600">
+            Your password has been successfully reset. You can now sign in with
+            your new password.
+          </p>
+          <Link to="/login" className="link-primary font-medium">
+            Sign in to your account
+          </Link>
+        </Card>
       </div>
     )
   }
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div>
-            <div className="flex justify-center">
-              <BookOpen className="h-12 w-12 text-primary-600" />
-            </div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Invalid reset link
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              This password reset link is invalid or has expired. Please request a new one.
-            </p>
-          </div>
-          <div className="text-center">
-            <Link
-              to="/forgot-password"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
-              Request new reset link
-            </Link>
-          </div>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12 sm:px-6 lg:px-8">
+        <Card className="w-full max-w-md space-y-6 p-8 text-center shadow-card">
+          <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
+          <h2 className="text-h1">Invalid reset link</h2>
+          <p className="text-body-sm text-neutral-600">
+            This password reset link is invalid or has expired. Please request
+            a new one.
+          </p>
+          <Link to="/forgot-password" className="link-primary font-medium">
+            Request new reset link
+          </Link>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="flex justify-center">
-            <BookOpen className="h-12 w-12 text-primary-600" />
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Reset your password
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+    <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md p-8 shadow-card">
+        <div className="text-center">
+          <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
+          <h2 className="mt-6 text-h1">Reset your password</h2>
+          <p className="mt-2 text-body-sm text-neutral-600">
             Enter your new password below.
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
-                New Password
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  {...register('newPassword')}
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  className={`input pl-10 pr-10 ${errors.newPassword ? 'border-red-300' : ''}`}
-                  placeholder="Enter new password"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
-                  )}
-                </button>
+        <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
+          <div>
+            <label
+              htmlFor="newPassword"
+              className="mb-2 block text-small font-medium text-neutral-700"
+            >
+              New password
+            </label>
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <Lock className="h-5 w-5 text-neutral-400" />
               </div>
-              {errors.newPassword && (
-                <p className="mt-2 text-sm text-red-600">{errors.newPassword.message}</p>
-              )}
+              <input
+                {...register('newPassword')}
+                id="newPassword"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                className={`input-field pl-10 pr-11 ${errors.newPassword ? 'input-field-error' : ''}`}
+                placeholder="Enter new password"
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-neutral-600"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm New Password
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  {...register('confirmPassword')}
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  className={`input pl-10 pr-10 ${errors.confirmPassword ? 'border-red-300' : ''}`}
-                  placeholder="Confirm new password"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
-                  )}
-                </button>
-              </div>
-              {errors.confirmPassword && (
-                <p className="mt-2 text-sm text-red-600">{errors.confirmPassword.message}</p>
-              )}
-            </div>
+            {errors.newPassword && (
+              <p className="mt-1.5 text-small text-error" role="alert">
+                {errors.newPassword.message}
+              </p>
+            )}
           </div>
 
           <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            <label
+              htmlFor="confirmPassword"
+              className="mb-2 block text-small font-medium text-neutral-700"
             >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Resetting...
-                </div>
-              ) : (
-                'Reset password'
-              )}
-            </button>
+              Confirm new password
+            </label>
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <Lock className="h-5 w-5 text-neutral-400" />
+              </div>
+              <input
+                {...register('confirmPassword')}
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                className={`input-field pl-10 pr-11 ${errors.confirmPassword ? 'input-field-error' : ''}`}
+                placeholder="Confirm new password"
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-neutral-600"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={
+                  showConfirmPassword ? 'Hide password' : 'Show password'
+                }
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+            {errors.confirmPassword && (
+              <p className="mt-1.5 text-small text-error" role="alert">
+                {errors.confirmPassword.message}
+              </p>
+            )}
           </div>
 
+          <Button type="submit" disabled={isLoading} className="w-full">
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                Resetting…
+              </span>
+            ) : (
+              'Reset password'
+            )}
+          </Button>
+
           <div className="text-center">
-            <Link
-              to="/login"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
+            <Link to="/login" className="link-primary font-medium">
               Back to login
             </Link>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   )
 }

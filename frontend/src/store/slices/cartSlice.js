@@ -1,83 +1,97 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import api from '../api/api'
+import { resolveBookForCart } from '../../utils/cartResolve'
+import { loadCartEntries, saveCartEntries } from '../../utils/localCartStorage'
 
-// Async thunks
-export const getCart = createAsyncThunk(
-  'cart/getCart',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await api.get('/cart')
-      return response.data.cart
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to get cart')
-    }
+const DISCOUNT_MIN_SUBTOTAL = 45
+const DISCOUNT_RATE = 0.1
+
+function recalcFromEntries(entries) {
+  const clean = entries
+    .filter((e) => e.quantity > 0)
+    .map((e) => ({
+      bookId: e.bookId,
+      quantity: Math.min(99, Math.max(1, Math.floor(e.quantity))),
+    }))
+
+  const items = clean.map(({ bookId, quantity }) => ({
+    book: resolveBookForCart(bookId),
+    quantity,
+  }))
+
+  const subtotal =
+    Math.round(
+      items.reduce((s, i) => s + i.book.price * i.quantity, 0) * 100
+    ) / 100
+
+  let discountAmount = 0
+  let discountLabel = ''
+  if (subtotal >= DISCOUNT_MIN_SUBTOTAL) {
+    discountAmount = Math.round(subtotal * DISCOUNT_RATE * 100) / 100
+    discountLabel = '10% off orders $45+'
   }
-)
+
+  const totalPrice =
+    Math.round((subtotal - discountAmount) * 100) / 100
+  const totalItems = items.reduce((s, i) => s + i.quantity, 0)
+
+  return {
+    entries: clean,
+    items,
+    subtotal,
+    discountAmount,
+    discountLabel,
+    totalItems,
+    totalPrice,
+  }
+}
+
+function persist(entries) {
+  saveCartEntries(entries)
+}
+
+const boot = recalcFromEntries(loadCartEntries())
+
+/** Hydrate cart from localStorage (e.g. after navigation or another tab saved). */
+export const getCart = createAsyncThunk('cart/getCart', async () => {
+  return loadCartEntries()
+})
 
 export const addToCart = createAsyncThunk(
   'cart/addToCart',
-  async ({ bookId, quantity = 1 }, { rejectWithValue }) => {
-    try {
-      const response = await api.post('/cart/add', { bookId, quantity })
-      return response.data.cart
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to add to cart')
-    }
+  async ({ bookId, quantity = 1 }) => {
+    return { bookId, quantity: quantity ?? 1 }
   }
 )
 
 export const updateCartItem = createAsyncThunk(
   'cart/updateCartItem',
-  async ({ bookId, quantity }, { rejectWithValue }) => {
-    try {
-      const response = await api.put('/cart/update', { bookId, quantity })
-      return response.data.cart
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update cart')
-    }
+  async ({ bookId, quantity }) => {
+    return { bookId, quantity }
   }
 )
 
 export const removeFromCart = createAsyncThunk(
   'cart/removeFromCart',
-  async (bookId, { rejectWithValue }) => {
-    try {
-      const response = await api.delete(`/cart/remove/${bookId}`)
-      return response.data.cart
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to remove from cart')
-    }
-  }
+  async (bookId) => bookId
 )
 
-export const clearCart = createAsyncThunk(
-  'cart/clearCart',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await api.delete('/cart/clear')
-      return response.data.cart
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to clear cart')
-    }
-  }
-)
+export const clearCart = createAsyncThunk('cart/clearCart', async () => null)
 
 export const getCartCount = createAsyncThunk(
   'cart/getCartCount',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await api.get('/cart/count')
-      return response.data.count
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to get cart count')
-    }
+  async (_, { getState }) => {
+    return getState().cart.totalItems
   }
 )
 
 const initialState = {
-  items: [],
-  totalItems: 0,
-  totalPrice: 0,
+  entries: boot.entries,
+  items: boot.items,
+  subtotal: boot.subtotal,
+  discountAmount: boot.discountAmount,
+  discountLabel: boot.discountLabel,
+  totalItems: boot.totalItems,
+  totalPrice: boot.totalPrice,
   isLoading: false,
   error: null,
 }
@@ -90,94 +104,103 @@ const cartSlice = createSlice({
       state.error = null
     },
     clearCartState: (state) => {
-      state.items = []
-      state.totalItems = 0
-      state.totalPrice = 0
+      const next = recalcFromEntries([])
+      Object.assign(state, next)
+      persist([])
     },
   },
   extraReducers: (builder) => {
     builder
-      // Get cart
-      .addCase(getCart.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
       .addCase(getCart.fulfilled, (state, action) => {
         state.isLoading = false
-        state.items = action.payload.items || []
-        state.totalItems = action.payload.totalItems || 0
-        state.totalPrice = action.payload.totalPrice || 0
+        const next = recalcFromEntries(action.payload)
+        state.entries = next.entries
+        state.items = next.items
+        state.subtotal = next.subtotal
+        state.discountAmount = next.discountAmount
+        state.discountLabel = next.discountLabel
+        state.totalItems = next.totalItems
+        state.totalPrice = next.totalPrice
         state.error = null
       })
       .addCase(getCart.rejected, (state, action) => {
         state.isLoading = false
         state.error = action.payload
       })
-      // Add to cart
-      .addCase(addToCart.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
       .addCase(addToCart.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.items = action.payload.items || []
-        state.totalItems = action.payload.totalItems || 0
-        state.totalPrice = action.payload.totalPrice || 0
-        state.error = null
-      })
-      .addCase(addToCart.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload
-      })
-      // Update cart item
-      .addCase(updateCartItem.pending, (state) => {
-        state.isLoading = true
-        state.error = null
+        const { bookId, quantity } = action.payload
+        const book = resolveBookForCart(bookId)
+        const maxPerLine = Math.min(10, book.stock ?? 10)
+        let entries = state.entries.map((e) => ({ ...e }))
+        const i = entries.findIndex((e) => e.bookId === bookId)
+        if (i >= 0) {
+          const nextQty = Math.min(
+            maxPerLine,
+            entries[i].quantity + quantity
+          )
+          entries[i] = { bookId, quantity: nextQty }
+        } else {
+          entries.push({
+            bookId,
+            quantity: Math.min(maxPerLine, Math.max(1, quantity)),
+          })
+        }
+        const next = recalcFromEntries(entries)
+        state.entries = next.entries
+        state.items = next.items
+        state.subtotal = next.subtotal
+        state.discountAmount = next.discountAmount
+        state.discountLabel = next.discountLabel
+        state.totalItems = next.totalItems
+        state.totalPrice = next.totalPrice
+        persist(entries)
       })
       .addCase(updateCartItem.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.items = action.payload.items || []
-        state.totalItems = action.payload.totalItems || 0
-        state.totalPrice = action.payload.totalPrice || 0
-        state.error = null
-      })
-      .addCase(updateCartItem.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload
-      })
-      // Remove from cart
-      .addCase(removeFromCart.pending, (state) => {
-        state.isLoading = true
-        state.error = null
+        let { bookId, quantity } = action.payload
+        let entries = state.entries.map((e) => ({ ...e }))
+        if (quantity <= 0) {
+          entries = entries.filter((e) => e.bookId !== bookId)
+        } else {
+          const book = resolveBookForCart(bookId)
+          const maxPerLine = Math.min(10, book.stock ?? 10)
+          quantity = Math.min(maxPerLine, quantity)
+          const i = entries.findIndex((e) => e.bookId === bookId)
+          if (i >= 0) entries[i] = { bookId, quantity }
+        }
+        const next = recalcFromEntries(entries)
+        state.entries = next.entries
+        state.items = next.items
+        state.subtotal = next.subtotal
+        state.discountAmount = next.discountAmount
+        state.discountLabel = next.discountLabel
+        state.totalItems = next.totalItems
+        state.totalPrice = next.totalPrice
+        persist(entries)
       })
       .addCase(removeFromCart.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.items = action.payload.items || []
-        state.totalItems = action.payload.totalItems || 0
-        state.totalPrice = action.payload.totalPrice || 0
-        state.error = null
+        const bookId = action.payload
+        const entries = state.entries.filter((e) => e.bookId !== bookId)
+        const next = recalcFromEntries(entries)
+        state.entries = next.entries
+        state.items = next.items
+        state.subtotal = next.subtotal
+        state.discountAmount = next.discountAmount
+        state.discountLabel = next.discountLabel
+        state.totalItems = next.totalItems
+        state.totalPrice = next.totalPrice
+        persist(entries)
       })
-      .addCase(removeFromCart.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload
+      .addCase(clearCart.fulfilled, (state) => {
+        const next = recalcFromEntries([])
+        state.entries = next.entries
+        state.items = next.items
+        state.subtotal = next.subtotal
+        state.discountAmount = next.discountAmount
+        state.discountLabel = next.discountLabel
+        state.totalItems = next.totalItems
+        state.totalPrice = next.totalPrice
+        persist([])
       })
-      // Clear cart
-      .addCase(clearCart.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(clearCart.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.items = []
-        state.totalItems = 0
-        state.totalPrice = 0
-        state.error = null
-      })
-      .addCase(clearCart.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload
-      })
-      // Get cart count
       .addCase(getCartCount.fulfilled, (state, action) => {
         state.totalItems = action.payload
       })

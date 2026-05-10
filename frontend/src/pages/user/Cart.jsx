@@ -1,14 +1,36 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react'
-import { getCart, updateCartItem, removeFromCart, clearCart } from '../../store/slices/cartSlice'
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Sparkles } from 'lucide-react'
+import {
+  getCart,
+  updateCartItem,
+  removeFromCart,
+  clearCart,
+} from '../../store/slices/cartSlice'
 import toast from 'react-hot-toast'
 import { formatPrice } from '../../utils/format'
+import { cn } from '../../utils/cn'
+import PageContainer from '../../components/layout/PageContainer'
+import { Card, CardContent } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+
+function lineImageSrc(book) {
+  const first = book?.images?.[0]
+  if (!first) return '/placeholder-book.jpg'
+  return typeof first === 'string' ? first : first?.url || '/placeholder-book.jpg'
+}
 
 const Cart = () => {
   const dispatch = useDispatch()
-  const { items, totalItems, totalPrice, isLoading } = useSelector((state) => state.cart)
+  const {
+    items,
+    totalItems,
+    subtotal,
+    discountAmount,
+    discountLabel,
+    totalPrice,
+  } = useSelector((state) => state.cart)
 
   useEffect(() => {
     dispatch(getCart())
@@ -17,8 +39,9 @@ const Cart = () => {
   const handleUpdateQuantity = async (bookId, newQuantity) => {
     if (newQuantity < 0) return
     try {
-      await dispatch(updateCartItem({ bookId, quantity: newQuantity })).unwrap()
-      toast.success('Cart updated')
+      await dispatch(
+        updateCartItem({ bookId, quantity: newQuantity })
+      ).unwrap()
     } catch (error) {
       toast.error(error || 'Failed to update cart')
     }
@@ -27,7 +50,7 @@ const Cart = () => {
   const handleRemoveItem = async (bookId) => {
     try {
       await dispatch(removeFromCart(bookId)).unwrap()
-      toast.success('Item removed from cart')
+      toast.success('Removed from cart')
     } catch (error) {
       toast.error(error || 'Failed to remove item')
     }
@@ -44,136 +67,216 @@ const Cart = () => {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const amountToDiscount =
+    subtotal > 0 && subtotal < 45 ? Math.max(0, 45 - subtotal) : 0
 
   if (!items || items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center py-20">
-            <ShoppingBag className="mx-auto h-24 w-24 text-gray-400" />
-            <h2 className="mt-6 text-2xl font-semibold text-gray-600">Your cart is empty</h2>
-            <p className="mt-2 text-gray-500">Start shopping to add items to your cart.</p>
-            <div className="mt-6">
-              <Link
-                to="/books"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              >
-                Continue Shopping
-              </Link>
+      <div className="min-h-screen bg-surface-subtle py-10 md:py-14">
+        <PageContainer>
+          <div className="mx-auto max-w-lg rounded-2xl border border-neutral-200/90 bg-surface px-8 py-16 text-center shadow-card md:py-20">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+              <ShoppingBag className="h-10 w-10" strokeWidth={1.5} />
             </div>
+            <h2 className="mt-8 text-h2 text-neutral-900">Your cart is empty</h2>
+            <p className="mt-3 text-body-sm leading-relaxed text-neutral-500">
+              Browse the shop and add books — your selections sync across this
+              device and stay saved until you clear them.
+            </p>
+            <Button as={Link} to="/books" className="mt-10" size="lg">
+              Continue shopping
+            </Button>
           </div>
-        </div>
+        </PageContainer>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
+    <div className="min-h-screen bg-surface-subtle py-8 md:py-10">
+      <PageContainer>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-h1 md:text-display">Shopping cart</h1>
+            <p className="mt-1 text-body-sm text-neutral-500">
+              {totalItems} {totalItems === 1 ? 'item' : 'items'} · Saved on this
+              device
+            </p>
+          </div>
           <button
+            type="button"
             onClick={handleClearCart}
-            className="text-sm text-red-600 hover:text-red-500 font-medium"
+            className="self-start text-body-sm font-medium text-error transition-colors hover:text-error/80"
           >
-            Clear Cart
+            Clear cart
           </button>
         </div>
 
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200">
-            {items.map((item) => (
-              <li key={item.book._id} className="px-6 py-4">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    <img
-                      className="h-20 w-16 object-cover rounded"
-                      src={item.book.images?.[0] || '/placeholder-book.jpg'}
-                      alt={item.book.title}
-                    />
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
+          <div className="lg:col-span-8">
+            <Card className="overflow-hidden border-neutral-200/90 shadow-card">
+              <ul className="divide-y divide-neutral-100">
+                {items.map((item) => (
+                  <li
+                    key={item.book._id}
+                    className="px-4 py-5 transition-colors hover:bg-neutral-50/50 sm:px-6"
+                  >
+                    <div className="flex flex-wrap items-center gap-4 sm:flex-nowrap">
+                      <Link
+                        to={`/books/${item.book._id}`}
+                        className="shrink-0 overflow-hidden rounded-xl ring-1 ring-neutral-200/80"
+                      >
+                        <img
+                          className="h-28 w-[4.75rem] object-cover sm:h-32 sm:w-[5.25rem]"
+                          src={lineImageSrc(item.book)}
+                          alt=""
+                        />
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          to={`/books/${item.book._id}`}
+                          className="text-body font-semibold text-neutral-900 transition-colors hover:text-primary-600 line-clamp-2"
+                        >
+                          {item.book.title}
+                        </Link>
+                        <p className="mt-1 text-small text-neutral-500">
+                          by {item.book.author}
+                        </p>
+                        <p className="mt-2 text-body-sm font-medium tabular-nums text-neutral-800">
+                          {formatPrice(item.book.price)}{' '}
+                          <span className="font-normal text-neutral-400">
+                            each
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end">
+                        <div className="inline-flex items-center rounded-xl border border-neutral-200 bg-white shadow-soft">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              item.quantity <= 1
+                                ? handleRemoveItem(item.book._id)
+                                : handleUpdateQuantity(
+                                    item.book._id,
+                                    item.quantity - 1
+                                  )
+                            }
+                            className="rounded-l-xl px-3 py-2.5 text-neutral-600 transition-colors hover:bg-neutral-50"
+                            aria-label="Decrease quantity"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="min-w-[2.25rem] px-2 text-center text-body-sm font-semibold tabular-nums">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUpdateQuantity(
+                                item.book._id,
+                                item.quantity + 1
+                              )
+                            }
+                            disabled={
+                              item.quantity >= (item.book.stock ?? 10) ||
+                              item.quantity >= 10
+                            }
+                            className="rounded-r-xl px-3 py-2.5 text-neutral-600 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label="Increase quantity"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-body font-semibold tabular-nums text-neutral-900">
+                            {formatPrice(item.book.price * item.quantity)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(item.book._id)}
+                            className="rounded-xl p-2.5 text-neutral-400 transition-colors hover:bg-error-muted hover:text-error"
+                            aria-label="Remove item"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-4">
+            <Card className="sticky top-24 border-neutral-200/90 shadow-card">
+              <CardContent className="space-y-5 p-6 md:p-7">
+                <h2 className="text-h3 text-neutral-900">Order summary</h2>
+
+                {amountToDiscount > 0 && (
+                  <div className="flex items-start gap-2 rounded-xl border border-primary-200/80 bg-primary-50/80 px-3 py-2.5 text-small text-primary-900">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      Add {formatPrice(amountToDiscount)} more for{' '}
+                      <strong>10% off</strong> your book subtotal.
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      to={`/books/${item.book._id}`}
-                      className="text-sm font-medium text-gray-900 hover:text-primary-600"
-                    >
-                      {item.book.title}
-                    </Link>
-                    <p className="text-sm text-gray-500">by {item.book.author}</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {formatPrice(item.book.price)}
+                )}
+
+                <dl className="space-y-3 text-body-sm">
+                  <div className="flex justify-between gap-4 text-neutral-600">
+                    <dt>Subtotal</dt>
+                    <dd className="font-medium tabular-nums text-neutral-900">
+                      {formatPrice(subtotal)}
+                    </dd>
+                  </div>
+                  <div
+                    className={cn(
+                      'flex justify-between gap-4',
+                      discountAmount > 0
+                        ? 'text-success'
+                        : 'text-neutral-600'
+                    )}
+                  >
+                    <dt className="flex items-center gap-1.5">
+                      <Tag className="h-3.5 w-3.5" />
+                      {discountAmount > 0 ? discountLabel || 'Discount' : 'Discount'}
+                    </dt>
+                    <dd className="font-medium tabular-nums">
+                      {discountAmount > 0
+                        ? `−${formatPrice(discountAmount)}`
+                        : '—'}
+                    </dd>
+                  </div>
+                  <div className="border-t border-neutral-200 pt-3">
+                    <div className="flex justify-between text-lg font-semibold text-neutral-900">
+                      <dt>Total</dt>
+                      <dd className="tabular-nums text-primary-600">
+                        {formatPrice(totalPrice)}
+                      </dd>
+                    </div>
+                    <p className="mt-1 text-small text-neutral-500">
+                      Tax & shipping calculated at checkout
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleUpdateQuantity(item.book._id, item.quantity - 1)}
-                      disabled={item.quantity <= 1}
-                      className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <span className="w-8 text-center">{item.quantity}</span>
-                    <button
-                      onClick={() => handleUpdateQuantity(item.book._id, item.quantity + 1)}
-                      disabled={item.quantity >= item.book.stock || item.quantity >= 10}
-                      className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm font-medium text-gray-900">
-                      {formatPrice(item.book.price * item.quantity)}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveItem(item.book._id)}
-                      className="text-red-600 hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+                </dl>
 
-        <div className="mt-8 bg-white shadow sm:rounded-lg">
-          <div className="px-6 py-4">
-            <div className="flex justify-between text-lg font-medium">
-              <span>Total ({totalItems} items)</span>
-              <span>{formatPrice(totalPrice)}</span>
-            </div>
-            <div className="mt-4">
-              <Link
-                to="/checkout"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              >
-                Proceed to Checkout
-              </Link>
-            </div>
-            <div className="mt-2">
-              <Link
-                to="/books"
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              >
-                Continue Shopping
-              </Link>
-            </div>
+                <Button as={Link} to="/checkout" className="w-full" size="lg">
+                  Proceed to checkout
+                </Button>
+                <Button
+                  as={Link}
+                  to="/books"
+                  variant="outline"
+                  className="w-full"
+                >
+                  Continue shopping
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
+      </PageContainer>
     </div>
   )
 }

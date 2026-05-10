@@ -1,107 +1,222 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import api from '../../store/api/api'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Search, Pencil, Trash2, BookOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { formatPrice } from '../../utils/format'
+import SellerLayout from '../../components/seller/SellerLayout'
+import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import {
+  getSellerBooks,
+  deleteSellerBook,
+} from '../../utils/sellerMockStore'
+import { cn } from '../../utils/cn'
 
-const SellerBooks = () => {
+function coverUrl(b) {
+  const img = b.images?.[0]
+  if (!img) return '/placeholder-book.jpg'
+  return typeof img === 'string' ? img : img?.url || '/placeholder-book.jpg'
+}
+
+export default function SellerBooks() {
   const navigate = useNavigate()
-  const [books, setBooks] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [search, setSearch] = useState('')
+  const location = useLocation()
+  const [query, setQuery] = useState('')
+  const [books, setBooks] = useState(() => getSellerBooks())
 
   useEffect(() => {
-    fetchBooks()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page])
+    setBooks(getSellerBooks())
+  }, [location.pathname])
 
-  const fetchBooks = async () => {
-    setIsLoading(true)
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: '12' })
-      if (search) params.append('search', search)
-      const res = await api.get(`/sellers/books?${params}`)
-      setBooks(res.data.books || [])
-      setTotalPages(res.data.pagination.totalPages)
-    } catch {
-      toast.error('Failed to load books')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return books
+    return books.filter(
+      (b) =>
+        b.title.toLowerCase().includes(q) ||
+        b.author.toLowerCase().includes(q) ||
+        b.isbn?.toLowerCase().includes(q)
+    )
+  }, [books, query])
 
-  const handleDelete = async (bookId) => {
-    if (!window.confirm('Delete this book?')) return
-    try {
-      await api.delete(`/books/${bookId}`)
-      toast.success('Book deleted')
-      fetchBooks()
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Failed to delete')
-    }
-  }
-
-  const handleSearch = (e) => {
-    e.preventDefault()
-    setPage(1)
-    fetchBooks()
+  const handleDelete = (bookId) => {
+    if (!window.confirm('Remove this title from your catalog?')) return
+    deleteSellerBook(bookId)
+    setBooks(getSellerBooks())
+    toast.success('Book removed')
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">My Books</h1>
-          <Link to="/seller/books/add" className="px-4 py-2 rounded-md bg-primary-600 text-white">Add Book</Link>
+    <SellerLayout
+      title="My books"
+      subtitle="Search, edit, or remove listings. New titles appear here after you add them."
+    >
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Button as={Link} to="/seller/books/add" className="w-full sm:w-auto">
+          Add book
+        </Button>
+      </div>
+
+      <Card className="mb-6 border-neutral-200/90 p-4 shadow-soft md:p-5">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="input-field pl-10"
+            placeholder="Search title, author, or ISBN…"
+            aria-label="Search catalog"
+          />
         </div>
+      </Card>
 
-        <form onSubmit={handleSearch} className="bg-white shadow rounded-lg p-4 mb-6">
-          <div className="flex gap-2">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} className="input flex-1" placeholder="Search by title or author" />
-            <button className="px-4 py-2 rounded-md bg-primary-600 text-white">Search</button>
+      {filtered.length === 0 ? (
+        <Card className="border-dashed border-neutral-200 py-16 text-center shadow-soft">
+          <BookOpen className="mx-auto h-12 w-12 text-neutral-300" />
+          <p className="mt-4 text-body-sm text-neutral-500">
+            {books.length === 0
+              ? 'No books yet — add your first listing.'
+              : 'No matches for that search.'}
+          </p>
+          {books.length === 0 && (
+            <Button as={Link} to="/seller/books/add" className="mt-6">
+              Add book
+            </Button>
+          )}
+        </Card>
+      ) : (
+        <>
+          <div className="hidden overflow-hidden rounded-2xl border border-neutral-200/90 bg-surface shadow-card md:block">
+            <table className="min-w-full text-left text-body-sm">
+              <thead className="border-b border-neutral-100 bg-surface-subtle text-small font-semibold uppercase tracking-wide text-neutral-500">
+                <tr>
+                  <th className="px-4 py-3 pl-6">Book</th>
+                  <th className="px-4 py-3">ISBN</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3 text-right">Price</th>
+                  <th className="px-4 py-3 text-right">Stock</th>
+                  <th className="px-4 py-3 pr-6 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {filtered.map((b) => (
+                  <tr key={b._id} className="transition-colors hover:bg-neutral-50/80">
+                    <td className="px-4 py-3 pl-6">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={coverUrl(b)}
+                          alt=""
+                          className="h-14 w-10 rounded-lg object-cover shadow-soft"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-medium text-neutral-900 line-clamp-2">
+                            {b.title}
+                          </p>
+                          <p className="text-small text-neutral-500">{b.author}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-small text-neutral-600">
+                      {b.isbn || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-neutral-600">
+                      {b.category || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium tabular-nums text-neutral-900">
+                      {formatPrice(b.price)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span
+                        className={cn(
+                          'inline-flex min-w-[2.5rem] justify-end tabular-nums font-medium',
+                          (b.stock ?? 0) === 0
+                            ? 'text-error'
+                            : (b.stock ?? 0) < 10
+                              ? 'text-amber-700'
+                              : 'text-neutral-800'
+                        )}
+                      >
+                        {b.stock ?? 0}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 pr-6 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/seller/books/${b._id}/edit`)}
+                        >
+                          <Pencil className="mr-1 h-3.5 w-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-error/30 text-error hover:bg-error-muted"
+                          onClick={() => handleDelete(b._id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </form>
 
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          </div>
-        ) : books.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">No books yet.</div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {books.map((b) => (
-                <div key={b._id} className="bg-white shadow rounded-lg overflow-hidden flex flex-col">
-                  <Link to={`/books/${b._id}`} className="block">
-                    <img src={b.images?.[0] || '/placeholder-book.jpg'} alt={b.title} className="w-full h-48 object-cover" />
-                  </Link>
-                  <div className="p-4 flex-1 flex flex-col">
-                    <div className="font-medium text-gray-900 line-clamp-2">{b.title}</div>
-                    <div className="text-xs text-gray-500 mt-1">{b.author}</div>
-                    <div className="mt-3 text-sm">Stock: {b.stock}</div>
-                    <div className="mt-auto flex gap-2">
-                      <button onClick={() => navigate(`/seller/books/${b._id}/edit`)} className="px-3 py-1.5 text-sm rounded-md border">Edit</button>
-                      <button onClick={() => handleDelete(b._id)} className="px-3 py-1.5 text-sm rounded-md border border-red-300 text-red-600">Delete</button>
+          <ul className="space-y-4 md:hidden">
+            {filtered.map((b) => (
+              <li key={b._id}>
+                <Card className="overflow-hidden border-neutral-200/90 p-4 shadow-soft">
+                  <div className="flex gap-3">
+                    <img
+                      src={coverUrl(b)}
+                      alt=""
+                      className="h-24 w-[4.5rem] shrink-0 rounded-lg object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-neutral-900 line-clamp-2">
+                        {b.title}
+                      </p>
+                      <p className="text-small text-neutral-500">{b.author}</p>
+                      <p className="mt-2 text-body-sm font-medium text-primary-600">
+                        {formatPrice(b.price)}
+                      </p>
+                      <p className="text-small text-neutral-600">
+                        Stock: <span className="tabular-nums">{b.stock}</span>
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            navigate(`/seller/books/${b._id}/edit`)
+                          }
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-error/30 text-error"
+                          onClick={() => handleDelete(b._id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {totalPages > 1 && (
-              <div className="mt-8 flex justify-center gap-2">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded border disabled:opacity-50">Previous</button>
-                <span className="px-3 py-1.5">Page {page} of {totalPages}</span>
-                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 rounded border disabled:opacity-50">Next</button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </SellerLayout>
   )
 }
-
-export default SellerBooks

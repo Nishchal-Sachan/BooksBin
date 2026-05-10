@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import api from '../../store/api/api'
-import { uploadImageToCloudinary, validateImageFile } from '../../utils/upload'
-import toast from 'react-hot-toast'
 import { useNavigate, useParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import SellerLayout from '../../components/seller/SellerLayout'
+import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import Spinner from '../../components/ui/Spinner'
+import { getSellerBooks, updateSellerBook } from '../../utils/sellerMockStore'
 
 const schema = z.object({
   title: z.string().min(2),
@@ -15,144 +18,192 @@ const schema = z.object({
   stock: z.coerce.number().int().nonnegative(),
   category: z.string().optional(),
   description: z.string().optional(),
-  imageUrl: z.string().url('Enter a valid image URL').optional(),
+  imageUrl: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val?.trim() || z.string().url().safeParse(val).success,
+      'Enter a valid image URL'
+    ),
 })
 
-const EditBook = () => {
+function coverFromBook(b) {
+  const img = b?.images?.[0]
+  if (!img) return ''
+  return typeof img === 'string' ? img : img?.url || ''
+}
+
+export default function EditBook() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({ resolver: zodResolver(schema) })
-  const [file, setFile] = useState(null)
-  const [fileError, setFileError] = useState('')
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm({ resolver: zodResolver(schema), defaultValues: { imageUrl: '' } })
 
   useEffect(() => {
-    fetchBook()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
-
-  const fetchBook = async () => {
-    setIsLoading(true)
-    try {
-      const res = await api.get(`/books/${id}`)
-      const b = res.data.book
-      reset({
-        title: b.title,
-        author: b.author,
-        price: b.price,
-        isbn: b.isbn,
-        stock: b.stock,
-        category: b.category || '',
-        description: b.description || '',
-        imageUrl: b.images?.[0] || '',
-      })
-    } catch {
-      toast.error('Failed to load book')
-    } finally {
-      setIsLoading(false)
+    const books = getSellerBooks()
+    const b = books.find((x) => x._id === id)
+    if (!b) {
+      toast.error('Book not found')
+      navigate('/seller/books')
+      return
     }
-  }
+    reset({
+      title: b.title,
+      author: b.author,
+      price: b.price,
+      isbn: b.isbn,
+      stock: b.stock,
+      category: b.category || '',
+      description: b.description || '',
+      imageUrl: coverFromBook(b),
+    })
+    setIsLoading(false)
+  }, [id, navigate, reset])
 
   const onSubmit = async (data) => {
-    setIsLoading(true)
-    try {
-      let imageUrl = data.imageUrl
-      if (file) {
-        const validation = validateImageFile(file)
-        if (!validation.valid) {
-          setFileError(validation.error)
-          setIsLoading(false)
-          return
-        }
-        imageUrl = await uploadImageToCloudinary(file)
-      }
-      const payload = {
-        title: data.title,
-        author: data.author,
-        price: data.price,
-        isbn: data.isbn,
-        stock: data.stock,
-        category: data.category,
-        description: data.description,
-        images: imageUrl ? [imageUrl] : [],
-      }
-      await api.put(`/books/${id}`, payload)
-      toast.success('Book updated')
-      navigate('/seller/books')
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Failed to update')
-    } finally {
-      setIsLoading(false)
-    }
+    const books = getSellerBooks()
+    const existing = books.find((x) => x._id === id)
+    const url = data.imageUrl?.trim()
+    const images =
+      url && url.length > 0
+        ? [url]
+        : existing?.images?.length
+          ? existing.images
+          : ['/placeholder-book.jpg']
+
+    updateSellerBook(id, {
+      title: data.title,
+      author: data.author,
+      price: data.price,
+      isbn: data.isbn,
+      stock: data.stock,
+      category: data.category,
+      description: data.description,
+      images,
+    })
+    toast.success('Book updated')
+    navigate('/seller/books')
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Edit Book</h1>
-
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow rounded-lg p-6 space-y-4">
+    <SellerLayout
+      title="Edit book"
+      subtitle="Update listing details and stock. Changes apply to your demo catalog immediately."
+    >
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center">
+          <Spinner size="lg" />
+        </div>
+      ) : (
+        <Card className="max-w-3xl border-neutral-200/90 p-6 shadow-card md:p-8">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Title</label>
-              <input {...register('title')} className="mt-1 input" />
-              {errors.title && <p className="text-sm text-red-600 mt-1">{errors.title.message}</p>}
+              <label className="mb-2 block text-small font-medium text-neutral-700">
+                Title
+              </label>
+              <input {...register('title')} className="input-field" />
+              {errors.title && (
+                <p className="mt-1.5 text-small text-error" role="alert">
+                  {errors.title.message}
+                </p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Or Upload Image (JPG/PNG, max 2MB)</label>
-              <input type="file" accept="image/jpeg,image/png" onChange={(e) => { setFileError(''); setFile(e.target.files?.[0] || null) }} className="mt-1 block w-full text-sm" />
-              {fileError && <p className="text-sm text-red-600 mt-1">{fileError}</p>}
+              <label className="mb-2 block text-small font-medium text-neutral-700">
+                Author
+              </label>
+              <input {...register('author')} className="input-field" />
+              {errors.author && (
+                <p className="mt-1.5 text-small text-error" role="alert">
+                  {errors.author.message}
+                </p>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Author</label>
-              <input {...register('author')} className="mt-1 input" />
-              {errors.author && <p className="text-sm text-red-600 mt-1">{errors.author.message}</p>}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Price (USD)</label>
-                <input type="number" step="0.01" {...register('price')} className="mt-1 input" />
-                {errors.price && <p className="text-sm text-red-600 mt-1">{errors.price.message}</p>}
+                <label className="mb-2 block text-small font-medium text-neutral-700">
+                  Price (USD)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register('price')}
+                  className="input-field"
+                />
+                {errors.price && (
+                  <p className="mt-1.5 text-small text-error" role="alert">
+                    {errors.price.message}
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">ISBN</label>
-                <input {...register('isbn')} className="mt-1 input" />
-                {errors.isbn && <p className="text-sm text-red-600 mt-1">{errors.isbn.message}</p>}
+                <label className="mb-2 block text-small font-medium text-neutral-700">
+                  ISBN
+                </label>
+                <input {...register('isbn')} className="input-field" />
+                {errors.isbn && (
+                  <p className="mt-1.5 text-small text-error" role="alert">
+                    {errors.isbn.message}
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Stock</label>
-                <input type="number" {...register('stock')} className="mt-1 input" />
-                {errors.stock && <p className="text-sm text-red-600 mt-1">{errors.stock.message}</p>}
+                <label className="mb-2 block text-small font-medium text-neutral-700">
+                  Stock
+                </label>
+                <input type="number" {...register('stock')} className="input-field" />
+                {errors.stock && (
+                  <p className="mt-1.5 text-small text-error" role="alert">
+                    {errors.stock.message}
+                  </p>
+                )}
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Category</label>
-              <input {...register('category')} className="mt-1 input" />
+              <label className="mb-2 block text-small font-medium text-neutral-700">
+                Category
+              </label>
+              <input {...register('category')} className="input-field" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Description</label>
-              <textarea {...register('description')} className="mt-1 input" rows={4} />
+              <label className="mb-2 block text-small font-medium text-neutral-700">
+                Description
+              </label>
+              <textarea
+                {...register('description')}
+                className="input-field min-h-[6rem]"
+                rows={4}
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Image URL</label>
-              <input {...register('imageUrl')} className="mt-1 input" />
-              {errors.imageUrl && <p className="text-sm text-red-600 mt-1">{errors.imageUrl.message}</p>}
+              <label className="mb-2 block text-small font-medium text-neutral-700">
+                Cover image URL
+              </label>
+              <input {...register('imageUrl')} className="input-field" />
+              {errors.imageUrl && (
+                <p className="mt-1.5 text-small text-error" role="alert">
+                  {errors.imageUrl.message}
+                </p>
+              )}
             </div>
-
-            <div className="pt-4">
-              <button type="submit" disabled={isLoading} className="px-4 py-2 rounded-md bg-primary-600 text-white disabled:opacity-50">
-                {isLoading ? 'Saving...' : 'Save Changes'}
-              </button>
+            <div className="flex flex-wrap gap-3 border-t border-neutral-100 pt-6">
+              <Button type="submit">Save changes</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate('/seller/books')}
+              >
+                Cancel
+              </Button>
             </div>
           </form>
-        )}
-      </div>
-    </div>
+        </Card>
+      )}
+    </SellerLayout>
   )
 }
-
-export default EditBook

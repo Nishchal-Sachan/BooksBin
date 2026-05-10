@@ -20,6 +20,7 @@ import ResetPassword from './pages/auth/ResetPassword'
 // Protected pages
 import Profile from './pages/user/Profile'
 import Orders from './pages/user/Orders'
+import OrderDetail from './pages/user/OrderDetail'
 import Wishlist from './pages/user/Wishlist'
 import Cart from './pages/user/Cart'
 import Checkout from './pages/user/Checkout'
@@ -40,6 +41,8 @@ import AdminOrders from './pages/admin/Orders'
 
 // Protected route component
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import PageContainer from './components/layout/PageContainer'
+import Spinner from './components/ui/Spinner'
 
 function App() {
   const dispatch = useDispatch()
@@ -55,8 +58,8 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      <div className="flex min-h-screen items-center justify-center bg-surface-subtle">
+        <Spinner size="xl" />
       </div>
     )
   }
@@ -64,7 +67,7 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 w-full">
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<Home />} />
@@ -82,6 +85,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders/:orderId"
+            element={
+              <ProtectedRoute>
+                <OrderDetail />
               </ProtectedRoute>
             }
           />
@@ -203,7 +214,19 @@ function App() {
           />
 
           {/* 404 route */}
-          <Route path="*" element={<div className="text-center py-20">Page not found</div>} />
+          <Route
+            path="*"
+            element={
+              <div className="section-y bg-surface-subtle">
+                <PageContainer className="py-20 text-center">
+                  <h1 className="text-h1">Page not found</h1>
+                  <p className="mt-3 text-body text-neutral-600">
+                    The page you are looking for does not exist.
+                  </p>
+                </PageContainer>
+              </div>
+            }
+          />
         </Routes>
       </main>
       <Footer />

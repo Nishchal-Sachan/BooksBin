@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import api from '../../store/api/api'
 import toast from 'react-hot-toast'
+import PageContainer from '../../components/layout/PageContainer'
+import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import Spinner from '../../components/ui/Spinner'
+import Badge from '../../components/ui/Badge'
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([])
@@ -40,11 +45,19 @@ const AdminOrders = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Manage Orders</h1>
-          <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value) }} className="input w-auto">
+    <div className="min-h-screen bg-surface-subtle py-8 md:py-10">
+      <PageContainer>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-h1 md:text-display">Manage orders</h1>
+          <select
+            value={status}
+            onChange={(e) => {
+              setPage(1)
+              setStatus(e.target.value)
+            }}
+            className="select-field w-full sm:w-auto"
+            aria-label="Filter by status"
+          >
             <option value="">All</option>
             <option value="confirmed">Confirmed</option>
             <option value="processing">Processing</option>
@@ -55,37 +68,65 @@ const AdminOrders = () => {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="flex h-64 items-center justify-center">
+            <Spinner size="lg" />
           </div>
         ) : orders.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">No orders.</div>
+          <div className="py-20 text-center text-body text-neutral-500">
+            No orders.
+          </div>
         ) : (
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <Card className="overflow-hidden p-0 shadow-card">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-neutral-200">
+                <thead className="bg-surface-subtle">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-2" />
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Order
+                    </th>
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Customer
+                    </th>
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Items
+                    </th>
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Total
+                    </th>
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                      Update
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-neutral-100 bg-surface">
                   {orders.map((o) => (
-                    <tr key={o._id}>
-                      <td className="px-4 py-2 text-sm text-gray-900">#{o._id.slice(-8)}</td>
-                      <td className="px-4 py-2 text-sm text-gray-500">{o.customer?.name}</td>
-                      <td className="px-4 py-2 text-sm text-gray-500">{o.items?.length}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">${(o.totals?.total || 0).toFixed(2)}</td>
-                      <td className="px-4 py-2 text-sm">
-                        <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">{o.status}</span>
+                    <tr key={o._id} className="hover:bg-surface-subtle/80">
+                      <td className="whitespace-nowrap px-4 py-3 text-body-sm font-medium text-neutral-900">
+                        #{o._id.slice(-8)}
                       </td>
-                      <td className="px-4 py-2 text-sm text-right">
-                        <select value={o.status} onChange={(e) => updateStatus(o._id, e.target.value)} className="input w-auto">
+                      <td className="px-4 py-3 text-body-sm text-neutral-600">
+                        {o.customer?.name}
+                      </td>
+                      <td className="px-4 py-3 text-body-sm text-neutral-500">
+                        {o.items?.length}
+                      </td>
+                      <td className="px-4 py-3 text-body-sm font-medium text-neutral-900">
+                        ${(o.totals?.total || 0).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-body-sm">
+                        <Badge variant="outline" className="capitalize">
+                          {o.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-body-sm">
+                        <select
+                          value={o.status}
+                          onChange={(e) => updateStatus(o._id, e.target.value)}
+                          className="select-field w-auto min-w-[8rem] py-2 text-small"
+                        >
                           <option value="confirmed">Confirmed</option>
                           <option value="processing">Processing</option>
                           <option value="shipped">Shipped</option>
@@ -100,15 +141,33 @@ const AdminOrders = () => {
             </div>
 
             {totalPages > 1 && (
-              <div className="px-4 py-3 border-t flex justify-center gap-2">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 rounded border disabled:opacity-50">Previous</button>
-                <span className="px-3 py-1.5">Page {page} of {totalPages}</span>
-                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 rounded border disabled:opacity-50">Next</button>
+              <div className="flex flex-wrap items-center justify-center gap-2 border-t border-neutral-100 px-4 py-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <span className="px-3 py-2 text-body-sm text-neutral-600">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
               </div>
             )}
-          </div>
+          </Card>
         )}
-      </div>
+      </PageContainer>
     </div>
   )
 }

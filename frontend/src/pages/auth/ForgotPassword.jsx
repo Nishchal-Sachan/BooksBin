@@ -6,9 +6,11 @@ import { z } from 'zod'
 import { Mail, ArrowLeft, BookOpen } from 'lucide-react'
 import api from '../../store/api/api'
 import toast from 'react-hot-toast'
+import { Card } from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email address')
+  email: z.string().email('Please enter a valid email address'),
 })
 
 const ForgotPassword = () => {
@@ -18,9 +20,9 @@ const ForgotPassword = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors }
+    formState: { errors },
   } = useForm({
-    resolver: zodResolver(forgotPasswordSchema)
+    resolver: zodResolver(forgotPasswordSchema),
   })
 
   const onSubmit = async (data) => {
@@ -38,96 +40,78 @@ const ForgotPassword = () => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div>
-            <div className="flex justify-center">
-              <BookOpen className="h-12 w-12 text-primary-600" />
-            </div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Check your email
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              We've sent you a password reset link. Please check your email and follow the instructions.
+      <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12 sm:px-6 lg:px-8">
+        <Card className="w-full max-w-md space-y-6 p-8 shadow-card">
+          <div className="text-center">
+            <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
+            <h2 className="mt-6 text-h1">Check your email</h2>
+            <p className="mt-2 text-body-sm text-neutral-600">
+              We&apos;ve sent you a password reset link. Please check your email
+              and follow the instructions.
             </p>
           </div>
           <div className="text-center">
-            <Link
-              to="/login"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
+            <Link to="/login" className="link-primary font-medium">
               Back to login
             </Link>
           </div>
-        </div>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="flex justify-center">
-            <BookOpen className="h-12 w-12 text-primary-600" />
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Forgot your password?
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your email address and we'll send you a link to reset your password.
+    <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md p-8 shadow-card">
+        <div className="text-center">
+          <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
+          <h2 className="mt-6 text-h1">Forgot your password?</h2>
+          <p className="mt-2 text-body-sm text-neutral-600">
+            Enter your email address and we&apos;ll send you a link to reset your
+            password.
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email address
-            </label>
-            <div className="mt-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                {...register('email')}
-                type="email"
-                autoComplete="email"
-                className={`input pl-10 ${errors.email ? 'border-red-300' : ''}`}
-                placeholder="Enter your email"
-              />
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <Mail className="h-5 w-5 text-neutral-400" />
             </div>
+            <input
+              {...register('email')}
+              type="email"
+              autoComplete="email"
+              placeholder="Enter your email"
+              className={`input-field pl-10 ${errors.email ? 'input-field-error' : ''}`}
+            />
             {errors.email && (
-              <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
+              <p className="mt-1.5 text-small text-error" role="alert">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Sending...
-                </div>
-              ) : (
-                'Send reset link'
-              )}
-            </button>
-          </div>
+          <Button type="submit" disabled={isLoading} className="w-full">
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                Sending…
+              </span>
+            ) : (
+              'Send reset link'
+            )}
+          </Button>
 
           <div className="text-center">
             <Link
               to="/login"
-              className="flex items-center justify-center font-medium text-primary-600 hover:text-primary-500"
+              className="link-primary inline-flex items-center justify-center font-medium"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
+              <ArrowLeft className="mr-1 h-4 w-4" />
               Back to login
             </Link>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   )
 }

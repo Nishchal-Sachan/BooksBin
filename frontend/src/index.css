@@ -5,59 +5,87 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  
+
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-surface-subtle text-neutral-900 text-body;
+  }
+
+  h1 {
+    @apply text-h1 md:text-display text-neutral-900;
+  }
+
+  h2 {
+    @apply text-h2 text-neutral-900;
+  }
+
+  h3 {
+    @apply text-h3 text-neutral-900;
   }
 }
 
 @layer components {
-  .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  .text-muted {
+    @apply text-neutral-500 text-body-sm;
   }
-  
-  .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+
+  .link-primary {
+    @apply text-primary-600 transition-colors duration-200 ease-smooth hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 rounded-sm;
   }
-  
-  .btn-secondary {
-    @apply bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500;
+
+  .input-field {
+    @apply w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-body-sm text-neutral-900 shadow-soft transition-colors duration-200 ease-smooth placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/25 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:opacity-60;
   }
-  
-  .btn-outline {
-    @apply border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500;
+
+  .input-field-error {
+    @apply border-error focus:border-error focus:ring-error/20;
   }
-  
-  .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+
+  .select-field {
+    @apply input-field cursor-pointer bg-[length:1.25rem] pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2378716c'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-position: right 0.65rem center;
+    background-repeat: no-repeat;
   }
-  
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+
+  .section-y {
+    @apply py-10 md:py-14 lg:py-16;
   }
-  
-  .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200;
+
+  .section-y-tight {
+    @apply py-8 md:py-10;
   }
-  
-  .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+@layer utilities {
+  .transition-card {
+    @apply transition-all duration-200 ease-smooth;
   }
-  
-  .badge-primary {
-    @apply bg-primary-100 text-primary-800;
+
+  .transition-button {
+    @apply transition-colors duration-200 ease-smooth active:scale-[0.98];
   }
-  
-  .badge-success {
-    @apply bg-green-100 text-green-800;
+
+  .scrollbar-landing {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(146 184 169 / 0.6) transparent;
   }
-  
-  .badge-warning {
-    @apply bg-yellow-100 text-yellow-800;
+
+  .scrollbar-landing::-webkit-scrollbar {
+    height: 10px;
   }
-  
-  .badge-danger {
-    @apply bg-red-100 text-red-800;
+
+  .scrollbar-landing::-webkit-scrollbar-track {
+    @apply rounded-full bg-neutral-100;
+  }
+
+  .scrollbar-landing::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-primary-300/80;
+  }
+
+  .scrollbar-landing::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary-400;
   }
 }
