@@ -6,24 +6,36 @@ const isProduction = process.env.NODE_ENV === 'production'
 // Frontend and API on different domains (e.g. booksbin.store + *.onrender.com)
 // require SameSite=None so cookies are sent on cross-origin API requests.
 function isCrossOriginDeployment() {
-  if (!isProduction) return false
-  const frontend = (process.env.FRONTEND_URL || '').split(',')[0]?.trim()
-  if (!frontend) return false
-  try {
-    const frontHost = new URL(frontend).hostname
-    return !frontHost.includes('localhost') && !frontHost.includes('127.0.0.1')
-  } catch {
-    return false
-  }
+  const urls = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((u) => u.trim())
+    .filter(Boolean)
+
+  return urls.some((url) => {
+    try {
+      const host = new URL(url).hostname
+      return !host.includes('localhost') && !host.includes('127.0.0.1')
+    } catch {
+      return false
+    }
+  })
 }
 
 const crossOrigin = isCrossOriginDeployment()
 
 const baseCookieOptions = {
   httpOnly: true,
-  secure: isProduction,
+  secure: isProduction || crossOrigin,
   sameSite: crossOrigin ? 'none' : isProduction ? 'strict' : 'lax',
   path: '/',
+}
+
+function sessionPayload(user, accessToken, refreshToken) {
+  return {
+    user: user.toJSON(),
+    accessToken,
+    refreshToken,
+  }
 }
 
 function setAuthCookies(res, accessToken, refreshToken) {
@@ -57,4 +69,5 @@ module.exports = {
   clearAuthCookies,
   getAccessToken,
   getRefreshToken,
+  sessionPayload,
 }

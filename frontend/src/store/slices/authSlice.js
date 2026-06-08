@@ -1,12 +1,21 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import api from '../api/api'
+import { setSessionTokens as persistTokens, clearSessionTokens } from '../../utils/sessionTokens'
+
+function sessionFromResponse(data) {
+  return {
+    user: data.user,
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+  }
+}
 
 export const login = createAsyncThunk(
   'auth/login',
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/login', credentials)
-      return { user: response.data.user }
+      return sessionFromResponse(response.data)
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Login failed')
     }
@@ -18,7 +27,7 @@ export const register = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/register', userData)
-      return { user: response.data.user }
+      return sessionFromResponse(response.data)
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Registration failed')
     }
@@ -65,16 +74,27 @@ export const logout = createAsyncThunk('auth/logout', async () => {
   try {
     await api.post('/auth/logout')
   } catch {
-    /* clear session cookies on server even if call fails */
+    /* clear session on server even if call fails */
   }
   return null
 })
 
 const initialState = {
   user: null,
+  accessToken: null,
+  refreshToken: null,
   isAuthenticated: false,
   isLoading: true,
   error: null,
+}
+
+function applySession(state, { user, accessToken, refreshToken }) {
+  state.user = user
+  state.accessToken = accessToken
+  state.refreshToken = refreshToken
+  state.isAuthenticated = true
+  state.error = null
+  persistTokens({ accessToken, refreshToken })
 }
 
 const authSlice = createSlice({
@@ -86,7 +106,18 @@ const authSlice = createSlice({
     },
     clearCredentials: (state) => {
       state.user = null
+      state.accessToken = null
+      state.refreshToken = null
       state.isAuthenticated = false
+      clearSessionTokens()
+    },
+    setSessionTokens: (state, action) => {
+      state.accessToken = action.payload.accessToken
+      if (action.payload.refreshToken) {
+        state.refreshToken = action.payload.refreshToken
+      }
+      persistTokens(action.payload)
+      state.isAuthenticated = Boolean(state.accessToken && state.user)
     },
   },
   extraReducers: (builder) => {
@@ -97,9 +128,7 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false
-        state.user = action.payload.user
-        state.isAuthenticated = true
-        state.error = null
+        applySession(state, action.payload)
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false
@@ -112,9 +141,7 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.isLoading = false
-        state.user = action.payload.user
-        state.isAuthenticated = true
-        state.error = null
+        applySession(state, action.payload)
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false
@@ -131,8 +158,10 @@ const authSlice = createSlice({
       })
       .addCase(getCurrentUser.rejected, (state) => {
         state.isLoading = false
-        state.isAuthenticated = false
-        state.user = null
+        if (!state.accessToken) {
+          state.isAuthenticated = false
+          state.user = null
+        }
       })
       .addCase(updateProfile.pending, (state) => {
         state.isLoading = true
@@ -161,12 +190,15 @@ const authSlice = createSlice({
       })
       .addCase(logout.fulfilled, (state) => {
         state.user = null
+        state.accessToken = null
+        state.refreshToken = null
         state.isAuthenticated = false
         state.isLoading = false
         state.error = null
+        clearSessionTokens()
       })
   },
 })
 
-export const { clearError, clearCredentials } = authSlice.actions
+export const { clearError, clearCredentials, setSessionTokens } = authSlice.actions
 export default authSlice.reducer

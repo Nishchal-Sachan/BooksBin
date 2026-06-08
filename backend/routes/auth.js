@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../models/User');
 const { generateToken, generateRefreshToken, authenticate, verifyRefreshToken } = require('../middlewares/auth');
-const { setAuthCookies, clearAuthCookies, getRefreshToken } = require('../utils/authCookies');
+const { setAuthCookies, clearAuthCookies, getRefreshToken, sessionPayload } = require('../utils/authCookies');
 const { validateUserRegistration, validateUserLogin, validatePasswordReset, validatePasswordUpdate } = require('../middlewares/validation');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 
@@ -47,7 +47,7 @@ router.post('/register', validateUserRegistration, async (req, res) => {
 
     res.status(201).json({
       message: 'User registered successfully. Please check your email for verification.',
-      user: user.toJSON(),
+      ...sessionPayload(user, token, refreshToken),
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -89,7 +89,7 @@ router.post('/login', validateUserLogin, async (req, res) => {
 
     res.json({
       message: 'Login successful',
-      user: user.toJSON(),
+      ...sessionPayload(user, token, refreshToken),
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -118,7 +118,11 @@ router.post('/refresh', async (req, res) => {
 
     setAuthCookies(res, newToken, newRefreshToken);
 
-    res.json({ message: 'Session refreshed' });
+    res.json({
+      message: 'Session refreshed',
+      accessToken: newToken,
+      refreshToken: newRefreshToken,
+    });
   } catch (error) {
     clearAuthCookies(res);
     res.status(401).json({ message: 'Invalid refresh token' });
