@@ -101,7 +101,7 @@ const AdminUsers = () => {
             <Spinner size="lg" />
           </div>
         ) : users.length === 0 ? (
-          <div className="py-20 text-center text-body text-neutral-500">
+          <div className="py-20 text-center text-body text-ink-muted">
             No users.
           </div>
         ) : (
@@ -110,16 +110,16 @@ const AdminUsers = () => {
               <table className="min-w-full divide-y divide-neutral-200">
                 <thead className="bg-surface-subtle">
                   <tr>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Name
                     </th>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Email
                     </th>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Role
                     </th>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Status
                     </th>
                   </tr>
@@ -130,7 +130,7 @@ const AdminUsers = () => {
                       <td className="whitespace-nowrap px-4 py-3 text-body-sm text-neutral-900">
                         {u.name}
                       </td>
-                      <td className="px-4 py-3 text-body-sm text-neutral-500">
+                      <td className="px-4 py-3 text-body-sm text-ink-muted">
                         {u.email}
                       </td>
                       <td className="px-4 py-3 text-body-sm">
@@ -173,7 +173,7 @@ const AdminUsers = () => {
                 >
                   Previous
                 </Button>
-                <span className="px-3 py-2 text-body-sm text-neutral-600">
+                <span className="px-3 py-2 text-body-sm text-ink-muted">
                   Page {page} of {totalPages}
                 </span>
                 <Button

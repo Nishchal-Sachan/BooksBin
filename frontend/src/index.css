@@ -10,42 +10,48 @@
   }
 
   body {
-    @apply bg-surface-subtle text-neutral-900 text-body;
+    @apply bg-surface-subtle text-ink text-body;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif text-ink;
   }
 
   h1 {
-    @apply text-h1 md:text-display text-neutral-900;
+    @apply text-h1 md:text-display;
   }
 
   h2 {
-    @apply text-h2 text-neutral-900;
+    @apply text-h2;
   }
 
   h3 {
-    @apply text-h3 text-neutral-900;
+    @apply text-h3;
   }
 }
 
 @layer components {
   .text-muted {
-    @apply text-neutral-500 text-body-sm;
+    @apply text-ink-faint text-body-sm;
   }
 
   .link-primary {
-    @apply text-primary-600 transition-colors duration-200 ease-smooth hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 rounded-sm;
+    @apply font-medium text-primary-800 underline-offset-2 transition-colors duration-200 ease-smooth hover:text-primary-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:ring-offset-2 rounded-sm;
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-body-sm text-neutral-900 shadow-soft transition-colors duration-200 ease-smooth placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/25 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:opacity-60;
+    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-body-sm text-ink shadow-soft transition-colors duration-200 ease-smooth placeholder:text-neutral-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:opacity-70;
   }
 
   .input-field-error {
-    @apply border-error focus:border-error focus:ring-error/20;
+    @apply border-error focus:border-error focus:ring-error/25;
   }
 
   .select-field {
     @apply input-field cursor-pointer bg-[length:1.25rem] pr-10;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2378716c'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2357534e'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
     background-position: right 0.65rem center;
     background-repeat: no-repeat;
   }
@@ -56,6 +62,67 @@
 
   .section-y-tight {
     @apply py-8 md:py-10;
+  }
+
+  .panel {
+    @apply rounded-xl border border-neutral-200 bg-surface shadow-soft;
+  }
+
+  .panel-elevated {
+    @apply rounded-2xl border border-neutral-200 bg-surface shadow-card;
+  }
+
+  .eyebrow {
+    @apply text-small font-semibold uppercase tracking-wider text-primary-700;
+  }
+
+  .nav-active {
+    @apply bg-primary-100 font-semibold text-primary-900;
+  }
+
+  .price-tag {
+    @apply text-lg font-bold tabular-nums text-accent-700;
+  }
+
+  .promo-bar {
+    @apply border-b border-primary-200 bg-primary-800 text-center text-small font-medium text-white;
+  }
+
+  /* Button text must stay readable on links (visited state) and after tailwind-merge */
+  .ui-btn-primary,
+  .ui-btn-danger {
+    @apply text-white;
+    color: #ffffff !important;
+  }
+
+  .ui-btn-primary:hover,
+  .ui-btn-primary:visited,
+  .ui-btn-primary:active,
+  .ui-btn-danger:hover,
+  .ui-btn-danger:visited,
+  .ui-btn-danger:active {
+    color: #ffffff !important;
+  }
+
+  .ui-btn-outline-inverse {
+    @apply text-white;
+    color: #ffffff !important;
+  }
+
+  .ui-btn-outline-inverse:hover,
+  .ui-btn-outline-inverse:visited,
+  .ui-btn-outline-inverse:active {
+    color: #ffffff !important;
+  }
+
+  .ui-btn-inverse {
+    @apply text-primary-900;
+  }
+
+  .ui-btn-inverse:hover,
+  .ui-btn-inverse:visited,
+  .ui-btn-inverse:active {
+    color: #182939 !important;
   }
 }
 
@@ -70,7 +137,7 @@
 
   .scrollbar-landing {
     scrollbar-width: thin;
-    scrollbar-color: rgb(146 184 169 / 0.6) transparent;
+    scrollbar-color: rgb(125 151 181 / 0.7) transparent;
   }
 
   .scrollbar-landing::-webkit-scrollbar {
@@ -82,7 +149,7 @@
   }
 
   .scrollbar-landing::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-primary-300/80;
+    @apply rounded-full bg-primary-300;
   }
 
   .scrollbar-landing::-webkit-scrollbar-thumb:hover {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -20,7 +20,8 @@ const resetPasswordSchema = z
   })
 
 const ResetPassword = () => {
-  const { token } = useParams()
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -61,7 +62,7 @@ const ResetPassword = () => {
         <Card className="w-full max-w-md space-y-6 p-8 text-center shadow-card">
           <CheckCircle className="mx-auto h-12 w-12 text-success" aria-hidden />
           <h2 className="text-h1">Password reset successful</h2>
-          <p className="text-body-sm text-neutral-600">
+          <p className="text-body-sm text-ink-muted">
             Your password has been successfully reset. You can now sign in with
             your new password.
           </p>
@@ -79,7 +80,7 @@ const ResetPassword = () => {
         <Card className="w-full max-w-md space-y-6 p-8 text-center shadow-card">
           <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
           <h2 className="text-h1">Invalid reset link</h2>
-          <p className="text-body-sm text-neutral-600">
+          <p className="text-body-sm text-ink-muted">
             This password reset link is invalid or has expired. Please request
             a new one.
           </p>
@@ -97,7 +98,7 @@ const ResetPassword = () => {
         <div className="text-center">
           <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
           <h2 className="mt-6 text-h1">Reset your password</h2>
-          <p className="mt-2 text-body-sm text-neutral-600">
+          <p className="mt-2 text-body-sm text-ink-muted">
             Enter your new password below.
           </p>
         </div>
@@ -123,7 +124,7 @@ const ResetPassword = () => {
               />
               <button
                 type="button"
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-neutral-600"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-ink-muted"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -162,7 +163,7 @@ const ResetPassword = () => {
               />
               <button
                 type="button"
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-neutral-600"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-ink-muted"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 aria-label={
                   showConfirmPassword ? 'Hide password' : 'Show password'

@@ -5,6 +5,7 @@ import PageContainer from '../../components/layout/PageContainer'
 import { Card } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
+import { formatPrice } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 
 const AdminOrders = () => {
@@ -72,7 +73,7 @@ const AdminOrders = () => {
             <Spinner size="lg" />
           </div>
         ) : orders.length === 0 ? (
-          <div className="py-20 text-center text-body text-neutral-500">
+          <div className="py-20 text-center text-body text-ink-muted">
             No orders.
           </div>
         ) : (
@@ -81,22 +82,22 @@ const AdminOrders = () => {
               <table className="min-w-full divide-y divide-neutral-200">
                 <thead className="bg-surface-subtle">
                   <tr>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Order
                     </th>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Customer
                     </th>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Items
                     </th>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Total
                     </th>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-neutral-500">
+                    <th className="px-4 py-3 text-left text-small font-semibold uppercase tracking-wide text-ink-muted">
                       Update
                     </th>
                   </tr>
@@ -107,14 +108,14 @@ const AdminOrders = () => {
                       <td className="whitespace-nowrap px-4 py-3 text-body-sm font-medium text-neutral-900">
                         #{o._id.slice(-8)}
                       </td>
-                      <td className="px-4 py-3 text-body-sm text-neutral-600">
+                      <td className="px-4 py-3 text-body-sm text-ink-muted">
                         {o.customer?.name}
                       </td>
-                      <td className="px-4 py-3 text-body-sm text-neutral-500">
+                      <td className="px-4 py-3 text-body-sm text-ink-muted">
                         {o.items?.length}
                       </td>
                       <td className="px-4 py-3 text-body-sm font-medium text-neutral-900">
-                        ${(o.totals?.total || 0).toFixed(2)}
+                        {formatPrice(o.totals?.total || 0)}
                       </td>
                       <td className="px-4 py-3 text-body-sm">
                         <Badge variant="outline" className="capitalize">
@@ -151,7 +152,7 @@ const AdminOrders = () => {
                 >
                   Previous
                 </Button>
-                <span className="px-3 py-2 text-body-sm text-neutral-600">
+                <span className="px-3 py-2 text-body-sm text-ink-muted">
                   Page {page} of {totalPages}
                 </span>
                 <Button

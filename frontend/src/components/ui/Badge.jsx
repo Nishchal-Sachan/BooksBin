@@ -1,19 +1,19 @@
 import { cn } from '../../utils/cn'
 
 const variants = {
-  default: 'bg-neutral-100 text-neutral-700',
-  primary: 'bg-primary-100 text-primary-800',
-  secondary: 'bg-secondary-100 text-secondary-800',
+  default: 'bg-neutral-200 text-ink-muted',
+  primary: 'bg-primary-100 text-primary-900',
+  secondary: 'bg-secondary-100 text-secondary-900',
   success: 'bg-success-muted text-success-foreground',
-  sale: 'bg-error-muted text-error-foreground',
-  new: 'bg-primary-50 text-primary-700 ring-1 ring-inset ring-primary-200/80',
-  outline: 'border border-neutral-200 bg-white text-neutral-600',
+  sale: 'bg-error text-white',
+  new: 'bg-accent-100 text-accent-800 ring-1 ring-inset ring-accent-300',
+  outline: 'border border-neutral-300 bg-white text-ink-muted',
 }
 
 const Badge = ({ className, variant = 'default', children, ...props }) => (
   <span
     className={cn(
-      'inline-flex items-center rounded-full px-2.5 py-0.5 text-small font-medium',
+      'inline-flex items-center rounded-full px-2.5 py-0.5 text-small font-semibold',
       variants[variant],
       className
     )}

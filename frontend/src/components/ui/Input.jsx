@@ -21,7 +21,7 @@ const Input = forwardRef(
         {label && (
           <label
             htmlFor={inputId}
-            className="mb-2 block text-small font-medium text-neutral-700"
+            className="mb-2 block text-small font-semibold text-ink-muted"
           >
             {label}
           </label>
@@ -41,7 +41,7 @@ const Input = forwardRef(
           {...props}
         />
         {hint && !error && (
-          <p id={`${inputId}-hint`} className="mt-1.5 text-small text-neutral-500">
+          <p id={`${inputId}-hint`} className="mt-1.5 text-small text-ink-muted">
             {hint}
           </p>
         )}

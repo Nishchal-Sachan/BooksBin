@@ -1,12 +1,14 @@
 export const formatPrice = (price) => {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(price)
 }
 
 export const formatDate = (date) => {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat('en-IN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -14,7 +16,7 @@ export const formatDate = (date) => {
 }
 
 export const formatDateTime = (date) => {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat('en-IN', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -50,7 +52,7 @@ export const formatRelativeTime = (date) => {
 }
 
 export const formatNumber = (number) => {
-  return new Intl.NumberFormat('en-US').format(number)
+  return new Intl.NumberFormat('en-IN').format(number)
 }
 
 export const formatFileSize = (bytes) => {

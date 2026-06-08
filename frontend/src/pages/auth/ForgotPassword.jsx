@@ -45,7 +45,7 @@ const ForgotPassword = () => {
           <div className="text-center">
             <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
             <h2 className="mt-6 text-h1">Check your email</h2>
-            <p className="mt-2 text-body-sm text-neutral-600">
+            <p className="mt-2 text-body-sm text-ink-muted">
               We&apos;ve sent you a password reset link. Please check your email
               and follow the instructions.
             </p>
@@ -66,7 +66,7 @@ const ForgotPassword = () => {
         <div className="text-center">
           <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
           <h2 className="mt-6 text-h1">Forgot your password?</h2>
-          <p className="mt-2 text-body-sm text-neutral-600">
+          <p className="mt-2 text-body-sm text-ink-muted">
             Enter your email address and we&apos;ll send you a link to reset your
             password.
           </p>

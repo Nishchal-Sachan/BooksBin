@@ -20,7 +20,6 @@ import { Card } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import { cn } from '../../utils/cn'
-import { loadProfileDraft, saveProfileDraft } from '../../utils/profileDraftStorage'
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -51,7 +50,6 @@ const passwordSchema = z
 export default function Profile() {
   const dispatch = useDispatch()
   const { user, isLoading } = useSelector((state) => state.auth)
-  const userKey = user?._id || user?.id || 'local'
   const [activeTab, setActiveTab] = useState('profile')
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
@@ -89,31 +87,34 @@ export default function Profile() {
 
   useEffect(() => {
     if (!user) return
-    const draft = loadProfileDraft(userKey)
     resetProfile({
-      name: draft?.name ?? user.name ?? '',
-      email: draft?.email ?? user.email ?? '',
-      phone: draft?.phone ?? user.profile?.phone ?? '',
+      name: user.name ?? '',
+      email: user.email ?? '',
+      phone: user.profile?.phone ?? '',
       address: {
-        street:
-          draft?.address?.street ?? user.profile?.address?.street ?? '',
-        city: draft?.address?.city ?? user.profile?.address?.city ?? '',
-        state: draft?.address?.state ?? user.profile?.address?.state ?? '',
-        zipCode:
-          draft?.address?.zipCode ?? user.profile?.address?.zipCode ?? '',
-        country:
-          draft?.address?.country ?? user.profile?.address?.country ?? '',
+        street: user.profile?.address?.street ?? '',
+        city: user.profile?.address?.city ?? '',
+        state: user.profile?.address?.state ?? '',
+        zipCode: user.profile?.address?.zipCode ?? '',
+        country: user.profile?.address?.country ?? '',
       },
     })
-  }, [user, userKey, resetProfile])
+  }, [user, resetProfile])
 
   const onSubmitProfile = async (data) => {
-    saveProfileDraft(userKey, data)
     try {
-      await dispatch(updateProfile(data)).unwrap()
+      await dispatch(
+        updateProfile({
+          name: data.name,
+          profile: {
+            phone: data.phone,
+            address: data.address,
+          },
+        })
+      ).unwrap()
       toast.success('Profile saved')
-    } catch {
-      toast.success('Saved on this device (demo — server unavailable)')
+    } catch (error) {
+      toast.error(error || 'Could not save profile')
     }
   }
 
@@ -149,7 +150,7 @@ export default function Profile() {
         'flex items-center gap-2 rounded-lg px-3 py-2.5 text-body-sm font-medium transition-colors',
         activeTab === id
           ? 'bg-primary-50 text-primary-800'
-          : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+          : 'text-ink-muted hover:bg-neutral-50 hover:text-neutral-900'
       )}
     >
       <Icon className="h-4 w-4 shrink-0 opacity-80" />
@@ -162,13 +163,13 @@ export default function Profile() {
       title="Profile"
       subtitle="Update your name, contact details, and shipping address."
     >
-      <div className="mb-6 flex flex-wrap gap-2 rounded-xl border border-neutral-200/90 bg-surface p-1.5 shadow-soft">
+      <div className="mb-6 flex flex-wrap gap-2 rounded-xl border border-neutral-200 bg-surface p-1.5 shadow-soft">
         {tabBtn('profile', 'Contact & address', User)}
         {tabBtn('password', 'Password', Lock)}
       </div>
 
       {activeTab === 'profile' && (
-        <Card className="border-neutral-200/90 p-6 shadow-card md:p-8">
+        <Card className="border-neutral-200 p-6 shadow-card md:p-8">
           <h2 className="text-h3 mb-6 text-neutral-900">
             Contact &amp; address
           </h2>
@@ -303,7 +304,7 @@ export default function Profile() {
       )}
 
       {activeTab === 'password' && (
-        <Card className="border-neutral-200/90 p-6 shadow-card md:p-8">
+        <Card className="border-neutral-200 p-6 shadow-card md:p-8">
           <h2 className="text-h3 mb-6 text-neutral-900">Change password</h2>
           <form
             onSubmit={handleSubmitPassword(onSubmitPassword)}
@@ -345,7 +346,7 @@ export default function Profile() {
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-neutral-600"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-ink-muted"
                     onClick={() => field.setShow(!field.show)}
                     aria-label="Toggle visibility"
                   >

@@ -1,401 +1,383 @@
-import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import {
-  ArrowRight,
-  Star,
-  Quote,
-  Tag,
-  ShieldCheck,
+  Search,
   Truck,
-  RotateCcw,
-  BookMarked,
-  Library,
+  Banknote,
+  ShieldCheck,
+  BookOpen,
+  ArrowRight,
   Sparkles,
-  GraduationCap,
-  UserRound,
-  Atom,
 } from 'lucide-react'
+import api from '../store/api/api'
+import { addToCart } from '../store/slices/cartSlice'
+import toast from 'react-hot-toast'
 import PageContainer from '../components/layout/PageContainer'
 import Button from '../components/ui/Button'
-import HeroIllustration from '../components/landing/HeroIllustration'
+import BookListingCard from '../components/books/BookListingCard'
+import BookListingCardSkeleton from '../components/books/BookListingCardSkeleton'
 import { formatPrice } from '../utils/format'
-import {
-  TRUST_STATS,
-  MOCK_FEATURED_BOOKS,
-  CATEGORY_CARDS,
-  WHY_FEATURES,
-  TESTIMONIALS,
-} from '../data/landingMock'
+import { FREE_SHIPPING_THRESHOLD } from '../utils/constants'
+import { BOOK_CATEGORIES } from '../utils/bookHelpers'
 import { cn } from '../utils/cn'
 
-const CATEGORY_ICONS = {
-  fiction: BookMarked,
-  'non-fiction': Library,
-  'self-help': Sparkles,
-  academic: GraduationCap,
-  biography: UserRound,
-  science: Atom,
-}
+const QUICK_CATEGORIES = [
+  'Fiction',
+  'Non-Fiction',
+  'Posters',
+  'Art & Prints',
+  'Stationery & Journals',
+  'Merchandise & Gifts',
+  'Magazines',
+  'Children',
+]
 
-const WHY_ICONS = [Tag, ShieldCheck, Truck, RotateCcw]
-
-function StarRow({ rating }) {
-  const full = Math.floor(rating)
-  const partial = rating - full >= 0.5
+function ProductSection({ title, subtitle, books, onAddToCart, viewAllTo }) {
+  if (!books?.length) return null
   return (
-    <div className="flex items-center gap-0.5 text-amber-500" aria-hidden>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <Star
-          key={i}
-          className={cn(
-            'h-3.5 w-3.5',
-            i < full
-              ? 'fill-amber-400 text-amber-400'
-              : i === full && partial
-                ? 'fill-amber-400/50 text-amber-400'
-                : 'fill-neutral-100 text-neutral-200'
+    <section className="py-10 md:py-12">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-h2 md:text-h1">{title}</h2>
+          {subtitle && (
+            <p className="mt-1 text-body-sm text-ink-muted">{subtitle}</p>
           )}
-        />
-      ))}
-    </div>
-  )
-}
-
-function FeaturedBookCard({ book }) {
-  return (
-    <article className="group relative w-[min(100%,280px)] shrink-0 snap-start sm:w-[260px]">
-      <Link
-        to="/books"
-        className="block overflow-hidden rounded-2xl border border-neutral-200/90 bg-surface shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-primary-200/80 hover:shadow-elevated"
-      >
-        <div className="relative aspect-[3/4] overflow-hidden bg-neutral-100">
-          <img
-            src={book.image}
-            alt={book.title}
-            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-            loading="lazy"
+        </div>
+        {viewAllTo && (
+          <Link
+            to={viewAllTo}
+            className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary-800 hover:text-primary-900"
+          >
+            View all
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:gap-6">
+        {books.map((book) => (
+          <BookListingCard
+            key={book._id}
+            book={book}
+            onAddToCart={onAddToCart}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/50 via-transparent to-transparent opacity-80" />
-          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
-            <StarRow rating={book.rating} />
-            <span className="rounded-full bg-white/95 px-2 py-0.5 text-small font-semibold text-neutral-800 shadow-soft tabular-nums">
-              {book.rating.toFixed(1)}
-            </span>
-          </div>
-        </div>
-        <div className="p-4">
-          <h3 className="line-clamp-2 text-body font-semibold leading-snug text-neutral-900 transition-colors group-hover:text-primary-700">
-            {book.title}
-          </h3>
-          <p className="mt-1 text-small text-neutral-500">{book.author}</p>
-          <div className="mt-3 flex items-end justify-between gap-2">
-            <span className="text-lg font-bold tracking-tight text-primary-600">
-              {formatPrice(book.price)}
-            </span>
-            <span className="text-small text-neutral-400">
-              {book.reviewCount.toLocaleString()} reviews
-            </span>
-          </div>
-        </div>
-      </Link>
-    </article>
+        ))}
+      </div>
+    </section>
   )
 }
 
-const Home = () => {
+function EmptyCatalog() {
+  return (
+    <section className="py-10 md:py-12">
+      <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center shadow-soft md:p-12">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-100 text-primary-800">
+          <BookOpen className="h-8 w-8" />
+        </div>
+        <h2 className="mt-6 text-h2">Catalog coming soon</h2>
+        <p className="mx-auto mt-3 max-w-lg text-body-sm text-ink-muted">
+          Our seller is adding books, posters, prints, and more. Check back soon,
+          or browse categories to see what we carry.
+        </p>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Button as={Link} to="/books">
+            Browse categories
+          </Button>
+          <Button as={Link} to="/register" variant="outline">
+            Create buyer account
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-10">
+        <h2 className="text-h2">Shop by category</h2>
+        <p className="mt-1 text-body-sm text-ink-muted">
+          Explore what BooksBin offers
+        </p>
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {BOOK_CATEGORIES.slice(0, 12).map((name) => (
+            <Link
+              key={name}
+              to={`/books?category=${encodeURIComponent(name)}`}
+              className="group flex flex-col rounded-xl border border-neutral-200 bg-white p-5 shadow-soft transition-all hover:border-primary-300 hover:shadow-card"
+            >
+              <BookOpen className="h-6 w-6 text-primary-700" />
+              <span className="mt-3 font-semibold text-ink group-hover:text-primary-800">
+                {name}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+export default function Home() {
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [store, setStore] = useState({
+    featured: [],
+    newArrivals: [],
+    bestsellers: [],
+    categories: [],
+    stats: { totalBooks: 0, totalCategories: 0, minPrice: 0, maxPrice: 0 },
+  })
+
   useEffect(() => {
-    document.title = 'BooksBin — Buy & sell books without the friction'
+    document.title = 'BooksBin — Online Bookstore'
+    api
+      .get('/books/storefront')
+      .then((res) => setStore(res.data))
+      .catch(() => toast.error('Could not load store'))
+      .finally(() => setLoading(false))
   }, [])
 
-  return (
-    <div className="min-h-screen overflow-x-hidden bg-surface">
-      {/* —— Hero —— */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-[#2a3d38] pb-16 pt-12 text-white md:pb-24 md:pt-16 lg:pt-20">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -right-24 top-1/2 h-[520px] w-[520px] -translate-y-1/2 rounded-full bg-secondary-500/20 blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-primary-500/25 blur-3xl"
-          aria-hidden
-        />
+  const handleSearch = (e) => {
+    e.preventDefault()
+    if (search.trim()) {
+      navigate(`/books?search=${encodeURIComponent(search.trim())}`)
+    } else {
+      navigate('/books')
+    }
+  }
 
-        <PageContainer className="relative">
-          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-            <div className="max-w-xl">
-              <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-small font-medium text-primary-100 backdrop-blur-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-                </span>
-                Live listings · New sellers weekly
-              </p>
-              <h1 className="mt-6 text-[2rem] font-semibold leading-[1.15] tracking-tight sm:text-4xl lg:text-[2.75rem] lg:leading-[1.12]">
-                Where every book finds its{' '}
-                <span className="bg-gradient-to-r from-primary-100 to-secondary-200 bg-clip-text text-transparent">
-                  next reader
-                </span>
+  const handleAddToCart = async (bookId, book) => {
+    try {
+      await dispatch(addToCart({ bookId, quantity: 1 })).unwrap()
+      toast.success(`“${book?.title ?? 'Book'}” added to cart`)
+    } catch (e) {
+      toast.error(e || 'Sign in to add items to cart')
+    }
+  }
+
+  const { stats, categories, featured, newArrivals, bestsellers } = store
+  const hasProducts =
+    featured.length > 0 ||
+    bestsellers.length > 0 ||
+    newArrivals.length > 0 ||
+    stats.totalBooks > 0
+  const displayCategories =
+    categories.length > 0
+      ? categories
+      : QUICK_CATEGORIES.map((name) => ({ name, count: 0 }))
+
+  return (
+    <div className="min-h-screen bg-surface-subtle">
+      <div className="promo-bar">
+        <PageContainer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 py-2.5">
+          <span className="inline-flex items-center gap-1.5 text-white">
+            <Truck className="h-3.5 w-3.5" aria-hidden />
+            Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}
+          </span>
+          <span className="hidden sm:inline text-white/50" aria-hidden>
+            |
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-white">
+            <Banknote className="h-3.5 w-3.5" aria-hidden />
+            Cash on delivery available
+          </span>
+        </PageContainer>
+      </div>
+
+      <section className="relative overflow-hidden border-b border-neutral-200 bg-white">
+        <div
+          className="pointer-events-none absolute -right-24 top-0 h-full w-1/2 opacity-[0.07]"
+          aria-hidden
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(45deg, #1e3247 0, #1e3247 2px, transparent 2px, transparent 12px)',
+          }}
+        />
+        <PageContainer className="relative py-10 md:py-16">
+          <div className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
+            <div>
+              <p className="eyebrow">Books, posters & more</p>
+              <h1 className="mt-3 text-h1 md:text-display">
+                Your next great read awaits
               </h1>
-              <p className="mt-6 text-lg leading-relaxed text-primary-100/90 sm:text-xl sm:leading-relaxed">
-                Buy curated reads at fair prices—or list what you have finished
-                and ship from your doorstep. One marketplace for readers who buy
-                smart and sell simple.
+              <p className="mt-4 max-w-lg text-body text-ink-muted">
+                {loading
+                  ? 'Loading catalog…'
+                  : stats.totalBooks > 0
+                    ? `${stats.totalBooks} products across ${stats.totalCategories} categories — from ${formatPrice(stats.minPrice)}.`
+                    : 'Browse books, posters, prints, and stationery. Create a free account and pay cash on delivery.'}
               </p>
-              <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Button as={Link} to="/books" size="lg" variant="inverse">
-                  Explore books
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Button as={Link} to="/books" size="lg">
+                  Start shopping
                 </Button>
-                <Button as={Link} to="/register" size="lg" variant="outlineInverse">
-                  Start selling
+                <Button as={Link} to="/register" variant="outline" size="lg">
+                  Join free
                 </Button>
               </div>
-              <p className="mt-6 text-small text-primary-200/80">
-                No storefront setup drama. List in minutes · Buyer protection on
-                every order
-              </p>
             </div>
-            <HeroIllustration className="lg:justify-self-end" />
+
+            <div className="rounded-2xl border border-neutral-200 bg-surface-subtle p-5 shadow-soft md:p-6">
+              <p className="mb-3 text-small font-semibold text-ink-muted">
+                Search our catalog
+              </p>
+              <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted" />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Title, author, or ISBN…"
+                    className="input-field w-full rounded-xl py-3 pl-11 pr-4 text-base"
+                  />
+                </div>
+                <Button type="submit" size="lg" className="shrink-0 sm:px-8">
+                  Search
+                </Button>
+              </form>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {(loading ? QUICK_CATEGORIES.slice(0, 6) : displayCategories.slice(0, 6)).map(
+                  (cat) => {
+                    const name = typeof cat === 'string' ? cat : cat.name
+                    const count = typeof cat === 'string' ? null : cat.count
+                    return (
+                      <Link
+                        key={name}
+                        to={`/books?category=${encodeURIComponent(name)}`}
+                        className="rounded-full border border-neutral-300 bg-white px-3.5 py-1.5 text-small font-medium text-ink-muted transition-colors hover:border-primary-400 hover:bg-primary-50 hover:text-primary-900"
+                      >
+                        {name}
+                        {count != null && count > 0 && (
+                          <span className="ml-1 text-ink-muted">({count})</span>
+                        )}
+                      </Link>
+                    )
+                  }
+                )}
+              </div>
+            </div>
           </div>
         </PageContainer>
       </section>
 
-      {/* —— Trust —— */}
-      <section className="relative border-y border-neutral-200/80 bg-gradient-to-b from-surface-subtle to-surface py-14 md:py-16">
-        <PageContainer>
-          <p className="text-center text-small font-semibold uppercase tracking-widest text-primary-600">
-            Trusted by readers & sellers
-          </p>
-          <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-6">
-            {TRUST_STATS.map((stat) => (
+      <section className="border-b border-neutral-200 bg-white">
+        <PageContainer className="py-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[
+              { icon: Banknote, label: 'Cash on delivery', detail: 'Pay when your order arrives' },
+              { icon: Truck, label: 'Fast dispatch', detail: 'Ships within 24 hours on in-stock items' },
+              { icon: ShieldCheck, label: 'Secure checkout', detail: 'Your data stays protected' },
+            ].map(({ icon: Icon, label, detail }) => (
               <div
-                key={stat.label}
-                className="relative overflow-hidden rounded-2xl border border-neutral-100 bg-surface p-8 text-center shadow-soft"
+                key={label}
+                className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-surface-subtle px-4 py-3.5"
               >
-                <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary-100/50" />
-                <p className="font-mono text-4xl font-bold tracking-tight text-neutral-900 md:text-5xl">
-                  {stat.value}
-                </p>
-                <p className="mt-2 text-h3 text-neutral-800">{stat.label}</p>
-                <p className="mt-1 text-small text-neutral-500">{stat.detail}</p>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-800">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-body-sm font-semibold text-ink">{label}</p>
+                  <p className="text-small text-ink-muted">{detail}</p>
+                </div>
               </div>
             ))}
           </div>
         </PageContainer>
       </section>
 
-      {/* —— Featured books —— */}
-      <section className="section-y bg-surface">
-        <PageContainer>
-          <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-h1 md:text-display">Trending on BooksBin</h2>
-              <p className="mt-2 max-w-xl text-body text-neutral-600">
-                Hand-picked titles readers are adding to cart—fiction,
-                non-fiction, and everything between.
-              </p>
-            </div>
-            <Link
-              to="/books"
-              className="inline-flex items-center gap-2 self-start text-body-sm font-semibold text-primary-600 transition-colors hover:text-primary-700"
-            >
-              See full catalog
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-
-          <div className="relative">
-            <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-8 bg-gradient-to-r from-surface to-transparent sm:w-12" />
-            <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-surface to-transparent sm:w-12" />
-            <div className="scrollbar-landing -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 pt-1 sm:-mx-6 sm:gap-5 sm:px-6 md:gap-6">
-              {MOCK_FEATURED_BOOKS.map((book) => (
-                <FeaturedBookCard key={book.id} book={book} />
+      <PageContainer className="pb-16">
+        {loading ? (
+          <div className="py-10">
+            <div className="mb-6 h-8 w-48 animate-pulse rounded-lg bg-neutral-200" />
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 8 }, (_, i) => (
+                <BookListingCardSkeleton key={i} />
               ))}
             </div>
           </div>
-          <p className="mt-4 text-center text-small text-neutral-500 sm:text-left">
-            Swipe on mobile · Covers shown are representative of popular titles
-          </p>
-        </PageContainer>
-      </section>
+        ) : !hasProducts ? (
+          <EmptyCatalog />
+        ) : (
+          <>
+            <ProductSection
+              title="Featured picks"
+              subtitle="Editor's selections from our catalog"
+              books={featured}
+              onAddToCart={handleAddToCart}
+              viewAllTo="/books"
+            />
 
-      {/* —— Categories —— */}
-      <section className="section-y border-t border-neutral-100 bg-surface-subtle">
-        <PageContainer>
-          <div className="mx-auto mb-12 max-w-2xl text-center">
-            <h2 className="text-h1 md:text-display">Shop by category</h2>
-            <p className="mt-3 text-body text-neutral-600">
-              Jump straight into the section that matches your mood—or your
-              syllabus.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {CATEGORY_CARDS.map((cat) => {
-              const Icon = CATEGORY_ICONS[cat.slug] || Library
-              return (
-                <Link
-                  key={cat.slug}
-                  to={`/books?category=${encodeURIComponent(cat.slug)}`}
-                  className={cn(
-                    'group relative overflow-hidden rounded-2xl border bg-surface p-6 shadow-soft ring-1 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card',
-                    'bg-gradient-to-br',
-                    cat.accent,
-                    cat.ring
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-h3 text-neutral-900">{cat.label}</h3>
-                      <p className="mt-1 text-body-sm text-neutral-600">
-                        {cat.description}
-                      </p>
-                    </div>
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/80 shadow-soft ring-1 ring-neutral-200/80 transition-transform duration-300 group-hover:scale-105 group-hover:ring-primary-200">
-                      <Icon className="h-7 w-7 text-primary-600" />
-                    </div>
-                  </div>
-                  <span className="mt-6 inline-flex items-center gap-1 text-small font-semibold text-primary-600">
-                    Browse {cat.label.toLowerCase()}
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </PageContainer>
-      </section>
+            <ProductSection
+              title="Bestsellers"
+              subtitle="Most ordered by readers this month"
+              books={bestsellers}
+              onAddToCart={handleAddToCart}
+              viewAllTo="/books?sort=bestseller"
+            />
 
-      {/* —— Why us —— */}
-      <section className="section-y bg-surface">
-        <PageContainer>
-          <div className="mb-12 text-center md:mb-14">
-            <h2 className="text-h1 md:text-display">Why readers choose us</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-body text-neutral-600">
-              Built for people who love books—not for endless scrolling through
-              questionable listings.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-8">
-            {WHY_FEATURES.map((f, i) => {
-              const Icon = WHY_ICONS[i]
-              return (
-                <div
-                  key={f.title}
-                  className="flex gap-5 rounded-2xl border border-neutral-100 bg-gradient-to-br from-surface to-surface-subtle p-6 shadow-soft transition-card hover:border-primary-100 hover:shadow-card md:p-8"
-                >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white shadow-card">
-                    <Icon className="h-7 w-7" strokeWidth={1.75} />
-                  </div>
-                  <div>
-                    <h3 className="text-h3">{f.title}</h3>
-                    <p className="mt-2 text-body-sm leading-relaxed text-neutral-600">
-                      {f.body}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </PageContainer>
-      </section>
+            <ProductSection
+              title="New arrivals"
+              subtitle="Recently added to the store"
+              books={newArrivals}
+              onAddToCart={handleAddToCart}
+              viewAllTo="/books?sort=newest"
+            />
 
-      {/* —— Testimonials —— */}
-      <section className="section-y border-t border-neutral-100 bg-neutral-900 text-white">
-        <PageContainer>
-          <div className="mb-12 text-center">
-            <h2 className="text-h1 text-white md:text-display">
-              Voices from the shelf
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-body text-neutral-400">
-              Real feedback from buyers and sellers who use BooksBin week after
-              week.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {TESTIMONIALS.map((t, i) => (
-              <blockquote
-                key={t.name}
-                className="relative flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.06] p-6 backdrop-blur-sm"
-              >
-                <Quote className="absolute right-5 top-5 h-8 w-8 text-primary-400/40" />
-                <div className="mb-4 flex gap-0.5 text-amber-400">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
+            {categories.length > 0 && (
+              <section className="py-10 md:py-12">
+                <h2 className="text-h2 md:text-h1">Browse by category</h2>
+                <p className="mt-1 text-body-sm text-ink-muted">
+                  Find exactly what you are looking for
+                </p>
+                <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {categories.map((cat) => (
+                    <Link
+                      key={cat.name}
+                      to={`/books?category=${encodeURIComponent(cat.name)}`}
                       className={cn(
-                        'h-4 w-4',
-                        s <= t.rating
-                          ? 'fill-amber-400 text-amber-400'
-                          : 'fill-transparent text-white/20'
+                        'group flex flex-col rounded-xl border border-neutral-200 bg-white p-5 shadow-soft',
+                        'transition-all hover:border-primary-300 hover:shadow-card'
                       )}
-                    />
+                    >
+                      <BookOpen className="h-6 w-6 text-primary-700" />
+                      <span className="mt-3 font-semibold text-ink group-hover:text-primary-800">
+                        {cat.name}
+                      </span>
+                      <span className="mt-1 text-small text-ink-muted">
+                        {cat.count} {cat.count === 1 ? 'title' : 'titles'}
+                      </span>
+                    </Link>
                   ))}
                 </div>
-                <p className="flex-1 text-body-sm leading-relaxed text-neutral-200">
-                  “{t.quote}”
-                </p>
-                <footer className="mt-6 flex items-center gap-3 border-t border-white/10 pt-5">
-                  <div
-                    className={cn(
-                      'flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-small font-bold text-white shadow-soft',
-                      i % 4 === 0 && 'bg-gradient-to-br from-primary-500 to-primary-700',
-                      i % 4 === 1 && 'bg-gradient-to-br from-secondary-500 to-secondary-700',
-                      i % 4 === 2 && 'bg-gradient-to-br from-violet-500 to-fuchsia-600',
-                      i % 4 === 3 && 'bg-gradient-to-br from-sky-500 to-cyan-600'
-                    )}
-                  >
-                    {t.initials}
-                  </div>
-                  <div>
-                    <cite className="not-italic text-body-sm font-semibold text-white">
-                      {t.name}
-                    </cite>
-                    <p className="text-small text-neutral-500">
-                      {t.role} · {t.location}
-                    </p>
-                  </div>
-                </footer>
-              </blockquote>
-            ))}
-          </div>
-        </PageContainer>
-      </section>
+              </section>
+            )}
+          </>
+        )}
 
-      {/* —— Final CTA —— */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary-700 via-primary-600 to-primary-800 py-16 text-white md:py-20">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-20"
-          aria-hidden
-        >
-          <div className="absolute left-1/4 top-0 h-96 w-96 rounded-full bg-white blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 h-80 w-80 rounded-full bg-secondary-400 blur-3xl" />
-        </div>
-        <PageContainer className="relative text-center">
-          <h2 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-            Your next chapter starts with one click
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-primary-100/95">
-            Open the catalog or list your first book tonight—either way, you are
-            joining a community that moves stories, not just boxes.
-          </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-            <Button as={Link} to="/books" size="lg" variant="inverse">
-              Start buying
-            </Button>
-            <Button as={Link} to="/register" size="lg" variant="outlineInverse">
-              Open a seller account
-            </Button>
+        <section className="mt-10 overflow-hidden rounded-2xl bg-primary-900 p-8 shadow-card md:p-10">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-small font-medium text-white">
+                <Sparkles className="h-3.5 w-3.5" />
+                Cash on delivery
+              </div>
+              <h2 className="text-h2 text-white">Ready to order?</h2>
+              <p className="mt-2 max-w-lg text-body-sm text-primary-100">
+                Add items to your cart, checkout with cash on delivery, and track
+                every order from your account.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button as={Link} to="/books" variant="inverse" size="lg">
+                Shop all products
+              </Button>
+              <Button as={Link} to="/register" variant="outlineInverse" size="lg">
+                Create account
+              </Button>
+            </div>
           </div>
-        </PageContainer>
-      </section>
+        </section>
+      </PageContainer>
     </div>
   )
 }
-
-export default Home

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Package,
@@ -8,21 +8,16 @@ import {
   CheckCircle,
   XCircle,
   Filter,
+  Star,
 } from 'lucide-react'
-import { MOCK_USER_ORDERS } from '../../data/mockUserOrders'
-import { getCombinedOrders } from '../../utils/orderHistoryStorage'
+import api from '../../store/api/api'
 import { formatPrice, formatDate } from '../../utils/format'
 import toast from 'react-hot-toast'
 import AccountLayout from '../../components/account/AccountLayout'
 import { Card } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import { coverUrl } from '../../utils/bookHelpers'
 import { cn } from '../../utils/cn'
-
-function itemImage(book) {
-  const img = book?.images?.[0]
-  if (!img) return '/placeholder-book.jpg'
-  return typeof img === 'string' ? img : img?.url || '/placeholder-book.jpg'
-}
 
 const getStatusIcon = (status) => {
   switch (status) {
@@ -57,145 +52,156 @@ const getStatusColor = (status) => {
 }
 
 export default function Orders() {
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
 
-  const allOrders = getCombinedOrders(MOCK_USER_ORDERS)
-
-  const orders = useMemo(() => {
-    if (!statusFilter) return allOrders
-    return allOrders.filter((o) => o.status === statusFilter)
-  }, [allOrders, statusFilter])
-
-  const handleCancelDemo = () => {
-    toast('Demo orders cannot be cancelled from this preview.', { icon: 'ℹ️' })
+  const load = async () => {
+    setLoading(true)
+    try {
+      const params = statusFilter ? { status: statusFilter } : {}
+      const { data } = await api.get('/orders/my-orders', { params })
+      setOrders(data.orders || [])
+    } catch {
+      toast.error('Failed to load orders')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const canCancelDemo = (order) =>
-    ['confirmed', 'processing'].includes(order.status)
+  useEffect(() => {
+    load()
+  }, [statusFilter])
+
+  const handleCancel = async (orderId) => {
+    if (!window.confirm('Cancel this order?')) return
+    try {
+      await api.patch(`/orders/${orderId}/cancel`, { reason: 'Customer request' })
+      toast.success('Order cancelled')
+      load()
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Could not cancel order')
+    }
+  }
+
+  const canCancel = (order) =>
+    ['pending', 'confirmed', 'processing'].includes(order.status)
 
   return (
     <AccountLayout
       title="Orders"
-      subtitle="Track deliveries and open receipts. History includes demo orders and your recent checkouts on this device."
+      subtitle="Track deliveries and view order history."
     >
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-body-sm text-neutral-500">
-          {orders.length} order{orders.length !== 1 ? 's' : ''}
-          {statusFilter ? ` · filtered` : ''}
-        </p>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 shrink-0 text-neutral-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="select-field min-w-[11rem]"
-            aria-label="Filter by status"
-          >
-            <option value="">All statuses</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="processing">Processing</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Filter className="h-4 w-4 text-neutral-400" />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="select-field min-w-[160px]"
+        >
+          <option value="">All orders</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="processing">Processing</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
       </div>
 
-      {orders.length === 0 ? (
-        <Card className="border-dashed border-neutral-200 p-12 text-center shadow-soft">
-          <Package className="mx-auto h-14 w-14 text-neutral-300" />
-          <h2 className="mt-4 text-h2 text-neutral-800">No orders</h2>
-          <p className="mt-2 text-body-sm text-neutral-500">
-            {statusFilter
-              ? 'Try clearing the filter.'
-              : 'Place an order from the shop to see it here.'}
+      {loading ? (
+        <p className="text-ink-muted">Loading orders…</p>
+      ) : orders.length === 0 ? (
+        <Card className="py-16 text-center shadow-soft">
+          <Package className="mx-auto h-12 w-12 text-neutral-300" />
+          <h2 className="mt-4 text-h3">No orders yet</h2>
+          <p className="mt-2 text-body-sm text-ink-muted">
+            When you place an order, it will appear here.
           </p>
           <Button as={Link} to="/books" className="mt-6">
-            Browse books
+            Start shopping
           </Button>
         </Card>
       ) : (
-        <ul className="space-y-4">
+        <div className="space-y-4">
           {orders.map((order) => (
-            <li key={order._id}>
-              <Card className="overflow-hidden border-neutral-200/90 shadow-card transition-shadow hover:shadow-card">
-                <div className="p-5 sm:p-6">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex min-w-0 gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500">
-                        <Package className="h-6 w-6" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-mono text-body-sm font-semibold text-neutral-900">
-                            {order.orderNumber || order._id}
-                          </p>
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-small font-medium capitalize',
-                              getStatusColor(order.status)
-                            )}
-                          >
-                            {getStatusIcon(order.status)}
-                            {order.status}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-body-sm text-neutral-500">
-                          {formatDate(order.createdAt)}
+            <Card key={order._id} className="overflow-hidden shadow-soft">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 bg-neutral-50/80 px-5 py-3">
+                <div>
+                  <p className="font-semibold text-neutral-900">
+                    {order.orderNumber}
+                  </p>
+                  <p className="text-small text-ink-muted">
+                    {formatDate(order.createdAt)}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-small font-medium capitalize',
+                    getStatusColor(order.status)
+                  )}
+                >
+                  {getStatusIcon(order.status)}
+                  {order.status}
+                </span>
+              </div>
+              <div className="p-5">
+                <div className="flex flex-wrap gap-4">
+                  {order.items?.slice(0, 3).map((item) => (
+                    <div key={item.book?._id} className="flex gap-3">
+                      <img
+                        src={coverUrl(item.book)}
+                        alt=""
+                        className="h-20 w-14 rounded object-cover"
+                      />
+                      <div>
+                        <p className="font-medium text-neutral-900">
+                          {item.book?.title}
                         </p>
-                        <p className="mt-2 text-body-sm font-medium text-neutral-800">
-                          {formatPrice(order.totals?.total ?? 0)} ·{' '}
-                          {order.items.length} item
-                          {order.items.length !== 1 ? 's' : ''}
+                        <p className="text-small text-ink-muted">
+                          Qty {item.quantity}
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 lg:shrink-0">
-                      <Button variant="outline" size="sm" as={Link} to={`/orders/${order._id}`}>
-                        <Eye className="mr-1 h-4 w-4" />
-                        Details
-                      </Button>
-                      {canCancelDemo(order) && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="border-error/30 text-error hover:bg-error-muted"
-                          onClick={handleCancelDemo}
-                        >
-                          Cancel
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-5 flex flex-wrap gap-3 border-t border-neutral-100 pt-5">
-                    {order.items.slice(0, 4).map((item, idx) => (
-                      <div
-                        key={`${order._id}-${item.book._id}-${idx}`}
-                        className="flex items-center gap-2 rounded-lg bg-surface-subtle px-2 py-1.5"
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="font-semibold text-neutral-900">
+                    Total: {formatPrice(order.totals?.total)}
+                    <span className="ml-2 text-small font-normal text-ink-muted">
+                      · COD
+                    </span>
+                  </p>
+                  <div className="flex gap-2">
+                    {canCancel(order) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCancel(order._id)}
                       >
-                        <img
-                          className="h-9 w-7 rounded object-cover"
-                          src={itemImage(item.book)}
-                          alt=""
-                        />
-                        <span className="max-w-[10rem] truncate text-small text-neutral-600">
-                          {item.book.title}{' '}
-                          <span className="text-neutral-400">×{item.quantity}</span>
-                        </span>
-                      </div>
-                    ))}
-                    {order.items.length > 4 && (
-                      <span className="self-center text-small text-neutral-400">
-                        +{order.items.length - 4} more
-                      </span>
+                        Cancel
+                      </Button>
                     )}
+                    {['shipped', 'delivered'].includes(order.status) && (
+                      <Button
+                        as={Link}
+                        to={`/orders/${order._id}`}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Star className="mr-1.5 h-4 w-4" />
+                        Review
+                      </Button>
+                    )}
+                    <Button as={Link} to={`/orders/${order._id}`} size="sm">
+                      <Eye className="mr-1.5 h-4 w-4" />
+                      Details
+                    </Button>
                   </div>
                 </div>
-              </Card>
-            </li>
+              </div>
+            </Card>
           ))}
-        </ul>
+        </div>
       )}
     </AccountLayout>
   )

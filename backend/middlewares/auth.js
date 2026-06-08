@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { getAccessToken } = require('../utils/authCookies');
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -24,8 +25,10 @@ const verifyRefreshToken = (token) => {
 // Authentication middleware
 const authenticate = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
+    const token =
+      getAccessToken(req) ||
+      req.header('Authorization')?.replace('Bearer ', '');
+
     if (!token) {
       return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
@@ -70,8 +73,10 @@ const authorize = (...roles) => {
 // Optional authentication (doesn't fail if no token)
 const optionalAuth = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
+    const token =
+      getAccessToken(req) ||
+      req.header('Authorization')?.replace('Bearer ', '');
+
     if (token) {
       const decoded = verifyToken(token);
       const user = await User.findById(decoded.userId).select('-password');

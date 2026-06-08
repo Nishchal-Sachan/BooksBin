@@ -5,6 +5,7 @@ import PageContainer from '../../components/layout/PageContainer'
 import { Card } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
+import { coverUrl } from '../../utils/bookHelpers'
 
 const AdminBooks = () => {
   const [books, setBooks] = useState([])
@@ -101,7 +102,7 @@ const AdminBooks = () => {
             <Spinner size="lg" />
           </div>
         ) : books.length === 0 ? (
-          <div className="py-20 text-center text-body text-neutral-500">
+          <div className="py-20 text-center text-body text-ink-muted">
             No books.
           </div>
         ) : (
@@ -114,7 +115,7 @@ const AdminBooks = () => {
                   className="flex flex-col overflow-hidden p-0 shadow-card"
                 >
                   <img
-                    src={b.images?.[0] || '/placeholder-book.jpg'}
+                    src={coverUrl(b)}
                     alt={b.title}
                     className="h-48 w-full object-cover"
                   />
@@ -122,10 +123,10 @@ const AdminBooks = () => {
                     <div className="line-clamp-2 font-medium text-neutral-900">
                       {b.title}
                     </div>
-                    <div className="mt-1 text-small text-neutral-500">
+                    <div className="mt-1 text-small text-ink-muted">
                       {b.author}
                     </div>
-                    <div className="mt-3 text-body-sm text-neutral-600">
+                    <div className="mt-3 text-body-sm text-ink-muted">
                       Seller: {b.seller?.name || '—'}
                     </div>
                     <div className="mt-auto flex flex-wrap gap-2 pt-4">
@@ -165,7 +166,7 @@ const AdminBooks = () => {
                 >
                   Previous
                 </Button>
-                <span className="px-3 py-2 text-body-sm text-neutral-600">
+                <span className="px-3 py-2 text-body-sm text-ink-muted">
                   Page {page} of {totalPages}
                 </span>
                 <Button

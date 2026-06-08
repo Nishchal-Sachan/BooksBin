@@ -10,16 +10,12 @@ import {
 } from '../../store/slices/cartSlice'
 import toast from 'react-hot-toast'
 import { formatPrice } from '../../utils/format'
+import { FREE_SHIPPING_THRESHOLD } from '../../utils/constants'
 import { cn } from '../../utils/cn'
 import PageContainer from '../../components/layout/PageContainer'
 import { Card, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-
-function lineImageSrc(book) {
-  const first = book?.images?.[0]
-  if (!first) return '/placeholder-book.jpg'
-  return typeof first === 'string' ? first : first?.url || '/placeholder-book.jpg'
-}
+import { coverUrl } from '../../utils/bookHelpers'
 
 const Cart = () => {
   const dispatch = useDispatch()
@@ -27,8 +23,8 @@ const Cart = () => {
     items,
     totalItems,
     subtotal,
-    discountAmount,
-    discountLabel,
+    tax,
+    shipping,
     totalPrice,
   } = useSelector((state) => state.cart)
 
@@ -67,19 +63,16 @@ const Cart = () => {
     }
   }
 
-  const amountToDiscount =
-    subtotal > 0 && subtotal < 45 ? Math.max(0, 45 - subtotal) : 0
-
   if (!items || items.length === 0) {
     return (
       <div className="min-h-screen bg-surface-subtle py-10 md:py-14">
         <PageContainer>
-          <div className="mx-auto max-w-lg rounded-2xl border border-neutral-200/90 bg-surface px-8 py-16 text-center shadow-card md:py-20">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+          <div className="mx-auto max-w-lg rounded-2xl border border-neutral-200 bg-white px-8 py-16 text-center shadow-card md:py-20">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-100 text-primary-800">
               <ShoppingBag className="h-10 w-10" strokeWidth={1.5} />
             </div>
             <h2 className="mt-8 text-h2 text-neutral-900">Your cart is empty</h2>
-            <p className="mt-3 text-body-sm leading-relaxed text-neutral-500">
+            <p className="mt-3 text-body-sm leading-relaxed text-ink-muted">
               Browse the shop and add books — your selections sync across this
               device and stay saved until you clear them.
             </p>
@@ -98,9 +91,8 @@ const Cart = () => {
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-h1 md:text-display">Shopping cart</h1>
-            <p className="mt-1 text-body-sm text-neutral-500">
-              {totalItems} {totalItems === 1 ? 'item' : 'items'} · Saved on this
-              device
+            <p className="mt-1 text-body-sm text-ink-muted">
+              {totalItems} {totalItems === 1 ? 'item' : 'items'}
             </p>
           </div>
           <button
@@ -114,7 +106,7 @@ const Cart = () => {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
           <div className="lg:col-span-8">
-            <Card className="overflow-hidden border-neutral-200/90 shadow-card">
+            <Card className="overflow-hidden border-neutral-200 shadow-card">
               <ul className="divide-y divide-neutral-100">
                 {items.map((item) => (
                   <li
@@ -128,18 +120,18 @@ const Cart = () => {
                       >
                         <img
                           className="h-28 w-[4.75rem] object-cover sm:h-32 sm:w-[5.25rem]"
-                          src={lineImageSrc(item.book)}
+                          src={coverUrl(item.book)}
                           alt=""
                         />
                       </Link>
                       <div className="min-w-0 flex-1">
                         <Link
                           to={`/books/${item.book._id}`}
-                          className="text-body font-semibold text-neutral-900 transition-colors hover:text-primary-600 line-clamp-2"
+                          className="text-body font-semibold text-neutral-900 transition-colors hover:text-primary-800 line-clamp-2"
                         >
                           {item.book.title}
                         </Link>
-                        <p className="mt-1 text-small text-neutral-500">
+                        <p className="mt-1 text-small text-ink-muted">
                           by {item.book.author}
                         </p>
                         <p className="mt-2 text-body-sm font-medium tabular-nums text-neutral-800">
@@ -161,7 +153,7 @@ const Cart = () => {
                                     item.quantity - 1
                                   )
                             }
-                            className="rounded-l-xl px-3 py-2.5 text-neutral-600 transition-colors hover:bg-neutral-50"
+                            className="rounded-l-xl px-3 py-2.5 text-ink-muted transition-colors hover:bg-neutral-50"
                             aria-label="Decrease quantity"
                           >
                             <Minus className="h-4 w-4" />
@@ -181,7 +173,7 @@ const Cart = () => {
                               item.quantity >= (item.book.stock ?? 10) ||
                               item.quantity >= 10
                             }
-                            className="rounded-r-xl px-3 py-2.5 text-neutral-600 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="rounded-r-xl px-3 py-2.5 text-ink-muted transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label="Increase quantity"
                           >
                             <Plus className="h-4 w-4" />
@@ -209,43 +201,40 @@ const Cart = () => {
           </div>
 
           <div className="lg:col-span-4">
-            <Card className="sticky top-24 border-neutral-200/90 shadow-card">
+            <Card className="sticky top-24 border-neutral-200 shadow-card">
               <CardContent className="space-y-5 p-6 md:p-7">
                 <h2 className="text-h3 text-neutral-900">Order summary</h2>
 
-                {amountToDiscount > 0 && (
+                {subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD && (
                   <div className="flex items-start gap-2 rounded-xl border border-primary-200/80 bg-primary-50/80 px-3 py-2.5 text-small text-primary-900">
                     <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
-                      Add {formatPrice(amountToDiscount)} more for{' '}
-                      <strong>10% off</strong> your book subtotal.
+                      Add {formatPrice(FREE_SHIPPING_THRESHOLD - subtotal)} more for{' '}
+                      <strong>free shipping</strong>.
                     </span>
                   </div>
                 )}
 
                 <dl className="space-y-3 text-body-sm">
-                  <div className="flex justify-between gap-4 text-neutral-600">
+                  <div className="flex justify-between gap-4 text-ink-muted">
                     <dt>Subtotal</dt>
                     <dd className="font-medium tabular-nums text-neutral-900">
                       {formatPrice(subtotal)}
                     </dd>
                   </div>
-                  <div
-                    className={cn(
-                      'flex justify-between gap-4',
-                      discountAmount > 0
-                        ? 'text-success'
-                        : 'text-neutral-600'
-                    )}
-                  >
+                  <div className="flex justify-between gap-4 text-ink-muted">
+                    <dt>GST (10%)</dt>
+                    <dd className="font-medium tabular-nums">
+                      {formatPrice(tax)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4 text-ink-muted">
                     <dt className="flex items-center gap-1.5">
                       <Tag className="h-3.5 w-3.5" />
-                      {discountAmount > 0 ? discountLabel || 'Discount' : 'Discount'}
+                      Shipping
                     </dt>
                     <dd className="font-medium tabular-nums">
-                      {discountAmount > 0
-                        ? `−${formatPrice(discountAmount)}`
-                        : '—'}
+                      {shipping === 0 ? 'Free' : formatPrice(shipping)}
                     </dd>
                   </div>
                   <div className="border-t border-neutral-200 pt-3">
@@ -255,8 +244,8 @@ const Cart = () => {
                         {formatPrice(totalPrice)}
                       </dd>
                     </div>
-                    <p className="mt-1 text-small text-neutral-500">
-                      Tax & shipping calculated at checkout
+                    <p className="mt-1 text-small text-ink-muted">
+                      Cash on delivery at checkout
                     </p>
                   </div>
                 </dl>

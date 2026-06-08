@@ -3,20 +3,19 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   BookOpen,
-  Check,
   ChevronRight,
   Heart,
   Package,
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
-  Star,
   Truck,
 } from 'lucide-react'
 import { addToCart } from '../store/slices/cartSlice'
 import api from '../store/api/api'
 import toast from 'react-hot-toast'
 import { formatPrice } from '../utils/format'
+import { FREE_SHIPPING_THRESHOLD } from '../utils/constants'
 import { cn } from '../utils/cn'
 import PageContainer from '../components/layout/PageContainer'
 import { Card } from '../components/ui/Card'
@@ -24,35 +23,9 @@ import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Skeleton from '../components/ui/Skeleton'
 import BookListingCard from '../components/books/BookListingCard'
-import {
-  getMockProductBook,
-  getMockRelatedBooks,
-} from '../data/bookProductMock'
-
-const DEMO_ID_PREFIX = 'cat-'
-
-function StarRow({ value, className }) {
-  const v = Math.round((value || 0) * 2) / 2
-  return (
-    <div className={cn('flex items-center gap-0.5', className)} aria-hidden>
-      {[1, 2, 3, 4, 5].map((i) => {
-        const full = v >= i
-        const half = !full && v >= i - 0.5
-        return (
-          <Star
-            key={i}
-            className={cn(
-              'h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]',
-              full && 'fill-amber-400 text-amber-400',
-              half && 'fill-amber-400/50 text-amber-400',
-              !full && !half && 'text-neutral-300'
-            )}
-          />
-        )
-      })}
-    </div>
-  )
-}
+import StarDisplay from '../components/reviews/StarDisplay'
+import BookReviewsSection from '../components/reviews/BookReviewsSection'
+import { coverUrl } from '../utils/bookHelpers'
 
 function BookDetailSkeleton() {
   return (
@@ -93,26 +66,52 @@ export default function BookDetail() {
   const [activeImage, setActiveImage] = useState(0)
   const [wishActive, setWishActive] = useState(false)
   const [wishBusy, setWishBusy] = useState(false)
+  const [related, setRelated] = useState([])
 
   useEffect(() => {
+    let cancelled = false
     setActiveImage(0)
     setQuantity(1)
     setLoading(true)
-    const t = window.setTimeout(() => {
-      const b = getMockProductBook(id)
-      setBook(b)
-      setLoading(false)
-    }, 420)
-    return () => window.clearTimeout(t)
+    setBook(null)
+    const load = async () => {
+      try {
+        const [bookRes, relatedRes] = await Promise.all([
+          api.get(`/books/${id}`),
+          api.get(`/books/${id}/related`),
+        ])
+        if (!cancelled) {
+          setBook(bookRes.data.book)
+          setRelated(relatedRes.data.books || [])
+        }
+      } catch {
+        if (!cancelled) {
+          setBook(null)
+          toast.error('Book not found')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [id])
 
-  const isDemo = book && String(book._id).startsWith(DEMO_ID_PREFIX)
+  useEffect(() => {
+    if (!isAuthenticated || !book?._id) return
+    api.get('/users/wishlist')
+      .then((res) => {
+        const ids = (res.data.wishlist || []).map((b) => b._id)
+        setWishActive(ids.includes(book._id))
+      })
+      .catch(() => {})
+  }, [isAuthenticated, book?._id])
 
   const gallery = book?.gallery?.length ? book.gallery : book?.images || []
   const mainSrc =
     typeof gallery[activeImage] === 'string'
       ? gallery[activeImage]
-      : gallery[activeImage]?.url || '/placeholder-book.jpg'
+      : gallery[activeImage]?.url || '/placeholder-book.svg'
 
   const hasDiscount =
     book &&
@@ -145,11 +144,7 @@ export default function BookDetail() {
       await dispatch(
         addToCart({ bookId: book._id, quantity })
       ).unwrap()
-      toast.success(
-        isDemo
-          ? `Added ${quantity} × “${book.title}” to your cart`
-          : 'Added to cart'
-      )
+      toast.success(`Added ${quantity} × “${book.title}” to your cart`)
     } catch (e) {
       toast.error(e || 'Failed to add to cart')
     }
@@ -158,10 +153,6 @@ export default function BookDetail() {
   const handleBuyNow = async () => {
     if (!book || book.stock <= 0) return
     await handleAddToCart()
-    if (isDemo) {
-      navigate('/cart')
-      return
-    }
     navigate('/cart')
   }
 
@@ -171,29 +162,23 @@ export default function BookDetail() {
       toast.error('Sign in to save books to your wishlist')
       return
     }
-    if (isDemo) {
-      setWishActive((v) => {
-        const next = !v
-        toast.success(
-          next ? 'Saved to wishlist (preview)' : 'Removed from wishlist (preview)'
-        )
-        return next
-      })
-      return
-    }
     setWishBusy(true)
     try {
-      await api.post(`/users/wishlist/${book._id}`)
-      setWishActive(true)
-      toast.success('Added to wishlist')
+      if (wishActive) {
+        await api.delete(`/users/wishlist/${book._id}`)
+        setWishActive(false)
+        toast.success('Removed from wishlist')
+      } else {
+        await api.post(`/users/wishlist/${book._id}`)
+        setWishActive(true)
+        toast.success('Added to wishlist')
+      }
     } catch (e) {
       toast.error(e.response?.data?.message || 'Could not update wishlist')
     } finally {
       setWishBusy(false)
     }
   }
-
-  const related = book ? getMockRelatedBooks(book._id, 6) : []
 
   if (loading) {
     return <BookDetailSkeleton />
@@ -206,9 +191,8 @@ export default function BookDetail() {
           <div className="rounded-2xl border border-dashed border-neutral-300 bg-surface py-20 text-center shadow-soft">
             <BookOpen className="mx-auto h-16 w-16 text-neutral-300" />
             <h2 className="mt-6 text-h2 text-neutral-800">Book not found</h2>
-            <p className="mx-auto mt-2 max-w-md text-body-sm text-neutral-500">
-              This title isn&apos;t in our demo catalog. Browse the shop for
-              curated picks with full product pages.
+            <p className="mx-auto mt-2 max-w-md text-body-sm text-ink-muted">
+              This book is no longer available or the link may be incorrect.
             </p>
             <Button as={Link} to="/books" className="mt-8">
               Browse all books
@@ -223,22 +207,22 @@ export default function BookDetail() {
   const count = book.ratings?.count ?? 0
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(34,197,94,0.08),transparent)] pb-20 pt-6 md:pt-10">
+    <div className="min-h-screen bg-surface-subtle pb-20 pt-6 md:pt-10">
       <PageContainer>
         {/* Breadcrumb */}
         <nav
-          className="mb-8 flex flex-wrap items-center gap-1 text-small text-neutral-500"
+          className="mb-8 flex flex-wrap items-center gap-1 text-small text-ink-muted"
           aria-label="Breadcrumb"
         >
-          <Link to="/" className="transition-colors hover:text-primary-600">
+          <Link to="/" className="font-medium transition-colors hover:text-primary-800">
             Home
           </Link>
           <ChevronRight className="h-3.5 w-3.5 text-neutral-400" />
-          <Link to="/books" className="transition-colors hover:text-primary-600">
+          <Link to="/books" className="font-medium transition-colors hover:text-primary-800">
             Books
           </Link>
           <ChevronRight className="h-3.5 w-3.5 text-neutral-400" />
-          <span className="line-clamp-1 font-medium text-neutral-700">
+          <span className="line-clamp-1 font-semibold text-ink">
             {book.title}
           </span>
         </nav>
@@ -249,8 +233,7 @@ export default function BookDetail() {
             <div className="lg:sticky lg:top-24 lg:space-y-5">
               <div
                 className={cn(
-                  'relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-neutral-50 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.03]',
-                  'before:pointer-events-none before:absolute before:inset-0 before:rounded-2xl before:ring-1 before:ring-inset before:ring-white/60'
+                  'relative overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-card'
                 )}
               >
                 <div className="aspect-[3/4]">
@@ -272,7 +255,7 @@ export default function BookDetail() {
 
               {gallery.length > 1 && (
                 <div>
-                  <p className="mb-2 text-small font-medium text-neutral-500">
+                  <p className="mb-2 text-small font-medium text-ink-muted">
                     Gallery
                   </p>
                   <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-landing">
@@ -311,13 +294,11 @@ export default function BookDetail() {
           <div className="lg:col-span-7 xl:col-span-8">
             <div className="flex flex-col gap-6">
               <div>
-                <p className="text-small font-semibold uppercase tracking-[0.12em] text-primary-600">
-                  {book.category}
-                </p>
-                <h1 className="mt-2 font-serif text-[1.75rem] font-semibold leading-tight tracking-tight text-neutral-900 sm:text-4xl md:text-[2.35rem] md:leading-[1.15]">
+                <p className="eyebrow">{book.category}</p>
+                <h1 className="mt-2 text-[1.75rem] leading-tight sm:text-4xl md:text-[2.35rem] md:leading-[1.15]">
                   {book.title}
                 </h1>
-                <p className="mt-3 text-lg text-neutral-600">
+                <p className="mt-3 text-lg text-ink-muted">
                   by{' '}
                   <span className="font-medium text-neutral-800">
                     {book.author}
@@ -325,21 +306,21 @@ export default function BookDetail() {
                 </p>
 
                 <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <StarRow value={avg} />
+                  <StarDisplay value={avg} />
                   <span className="text-lg font-semibold tabular-nums text-neutral-900">
                     {avg.toFixed(1)}
                   </span>
-                  <span className="text-body-sm text-neutral-500">
+                  <span className="text-body-sm text-ink-muted">
                     {count.toLocaleString()} reviews
                   </span>
                 </div>
               </div>
 
-              <Card className="border-neutral-200/90 bg-gradient-to-br from-surface via-surface to-primary-50/30 p-6 shadow-card md:p-8">
+              <Card className="border-neutral-200 bg-white p-6 shadow-card md:p-8">
                 <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="flex flex-wrap items-baseline gap-3">
-                      <span className="text-3xl font-bold tracking-tight text-primary-600 md:text-4xl">
+                      <span className="text-3xl font-bold tracking-tight text-accent-700 md:text-4xl">
                         {formatPrice(book.price)}
                       </span>
                       {hasDiscount && (
@@ -375,7 +356,7 @@ export default function BookDetail() {
                       disabled={wishBusy}
                       aria-pressed={wishActive}
                       className={cn(
-                        'flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-500 shadow-soft transition-all hover:border-rose-200 hover:text-rose-600',
+                        'flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-200 bg-white text-ink-muted shadow-soft transition-all hover:border-rose-200 hover:text-rose-600',
                         wishActive &&
                           'border-rose-200 bg-rose-50 text-rose-600'
                       )}
@@ -397,7 +378,7 @@ export default function BookDetail() {
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      className="rounded-l-xl px-4 py-3 text-lg font-medium text-neutral-600 transition-colors hover:bg-neutral-50"
+                      className="rounded-l-xl px-4 py-3 text-lg font-medium text-ink-muted transition-colors hover:bg-neutral-50"
                     >
                       −
                     </button>
@@ -409,7 +390,7 @@ export default function BookDetail() {
                       onClick={() =>
                         setQuantity((q) => Math.min(maxQty, q + 1))
                       }
-                      className="rounded-r-xl px-4 py-3 text-lg font-medium text-neutral-600 transition-colors hover:bg-neutral-50"
+                      className="rounded-r-xl px-4 py-3 text-lg font-medium text-ink-muted transition-colors hover:bg-neutral-50"
                     >
                       +
                     </button>
@@ -437,15 +418,15 @@ export default function BookDetail() {
                 </div>
 
                 <ul className="mt-8 grid gap-3 sm:grid-cols-3">
-                  <li className="flex items-start gap-2 rounded-xl bg-white/60 px-3 py-2.5 text-small text-neutral-600">
+                  <li className="flex items-start gap-2 rounded-xl bg-white/60 px-3 py-2.5 text-small text-ink-muted">
                     <Truck className="mt-0.5 h-4 w-4 shrink-0 text-primary-600" />
-                    Free shipping over $35
+                    Free shipping over {formatPrice(FREE_SHIPPING_THRESHOLD)}
                   </li>
-                  <li className="flex items-start gap-2 rounded-xl bg-white/60 px-3 py-2.5 text-small text-neutral-600">
+                  <li className="flex items-start gap-2 rounded-xl bg-white/60 px-3 py-2.5 text-small text-ink-muted">
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary-600" />
                     Authentic publisher editions
                   </li>
-                  <li className="flex items-start gap-2 rounded-xl bg-white/60 px-3 py-2.5 text-small text-neutral-600">
+                  <li className="flex items-start gap-2 rounded-xl bg-white/60 px-3 py-2.5 text-small text-ink-muted">
                     <Package className="mt-0.5 h-4 w-4 shrink-0 text-primary-600" />
                     Careful packaging & tracking
                   </li>
@@ -453,33 +434,33 @@ export default function BookDetail() {
               </Card>
 
               {/* Meta */}
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-neutral-200/80 bg-surface-subtle/80 px-5 py-4 text-small sm:grid-cols-4">
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-neutral-200 bg-surface-subtle/80 px-5 py-4 text-small sm:grid-cols-4">
                 <div>
-                  <dt className="text-neutral-500">ISBN</dt>
+                  <dt className="text-ink-muted">ISBN</dt>
                   <dd className="mt-0.5 font-medium text-neutral-800">
                     {book.isbn}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-neutral-500">Format</dt>
+                  <dt className="text-ink-muted">Format</dt>
                   <dd className="mt-0.5 font-medium text-neutral-800">
-                    {book.format}
+                    {book.condition || 'Paperback'}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-neutral-500">Pages</dt>
+                  <dt className="text-ink-muted">Pages</dt>
                   <dd className="mt-0.5 font-medium text-neutral-800">
                     {book.pages}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-neutral-500">Publisher</dt>
+                  <dt className="text-ink-muted">Publisher</dt>
                   <dd className="mt-0.5 font-medium text-neutral-800 line-clamp-2">
                     {book.publisher}
                   </dd>
                 </div>
                 <div className="col-span-2 sm:col-span-4">
-                  <dt className="text-neutral-500">Language</dt>
+                  <dt className="text-ink-muted">Language</dt>
                   <dd className="mt-0.5 font-medium text-neutral-800">
                     {book.language}
                   </dd>
@@ -497,100 +478,52 @@ export default function BookDetail() {
                 About this book
               </h2>
               <div className="prose-book mt-6 space-y-4 text-body text-neutral-700">
-                {book.description.split('\n\n').map((para, i) => (
+                {(book.description || '').split(/\n\n+/).map((para, i) => (
                   <p key={i} className="leading-relaxed">
                     {para}
                   </p>
                 ))}
               </div>
             </div>
-            <div className="lg:col-span-4">
-              <Card className="border-primary-100/80 bg-gradient-to-b from-primary-50/40 to-surface p-6 shadow-soft">
-                <h3 className="text-small font-semibold uppercase tracking-wide text-primary-800">
-                  Highlights
-                </h3>
-                <ul className="mt-4 space-y-3">
-                  {book.highlights.map((line, i) => (
-                    <li key={i} className="flex gap-3 text-body-sm text-neutral-700">
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white">
-                        <Check className="h-3 w-3" strokeWidth={3} />
-                      </span>
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </div>
+            {book.tags?.length > 0 && (
+              <div className="lg:col-span-4">
+                <Card className="border-primary-100/80 bg-gradient-to-b from-primary-50/40 to-surface p-6 shadow-soft">
+                  <h3 className="text-small font-semibold uppercase tracking-wide text-primary-800">
+                    Tags
+                  </h3>
+                  <ul className="mt-4 flex flex-wrap gap-2">
+                    {book.tags.map((tag) => (
+                      <li
+                        key={tag}
+                        className="rounded-full bg-white px-3 py-1 text-small font-medium text-neutral-700 ring-1 ring-neutral-200"
+                      >
+                        {tag}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Reviews */}
-        <section className="mt-16 border-t border-neutral-200/80 pt-16 md:mt-20 md:pt-20">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="font-serif text-2xl font-semibold text-neutral-900 md:text-3xl">
-                Customer reviews
-              </h2>
-              <p className="mt-1 text-body-sm text-neutral-500">
-                Verified purchase-style feedback from our demo community
-              </p>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-surface px-4 py-2 shadow-soft">
-              <StarRow value={avg} />
-              <span className="font-semibold text-neutral-900">
-                {avg.toFixed(1)}
-              </span>
-              <span className="text-small text-neutral-500">
-                ({count.toLocaleString()} total)
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-10 space-y-4">
-            {book.reviews.map((rev) => (
-              <Card
-                key={rev.id}
-                className="border-neutral-200/90 p-5 shadow-soft transition-shadow hover:shadow-card md:p-6"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-small font-bold text-white shadow-soft"
-                      aria-hidden
-                    >
-                      {rev.userName
-                        .split(' ')
-                        .map((w) => w[0])
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-neutral-900">
-                        {rev.userName}
-                      </p>
-                      <StarRow value={rev.rating} className="mt-1" />
-                    </div>
-                  </div>
-                  <time className="text-small text-neutral-400">
-                    {rev.dateLabel}
-                  </time>
-                </div>
-                <p className="mt-4 text-body-sm leading-relaxed text-neutral-700">
-                  {rev.comment}
-                </p>
-              </Card>
-            ))}
-          </div>
-        </section>
+        <BookReviewsSection
+          bookId={book._id}
+          bookTitle={book.title}
+          avgRating={avg}
+          reviewCount={count}
+          onReviewChange={() =>
+            api.get(`/books/${book._id}`).then((res) => setBook(res.data.book))
+          }
+        />
 
         {/* Related */}
         {related.length > 0 && (
-          <section className="mt-16 border-t border-neutral-200/80 pt-16 md:mt-20 md:pt-20">
+          <section className="mt-16 border-t border-neutral-200 pt-16 md:mt-20 md:pt-20">
             <h2 className="font-serif text-2xl font-semibold text-neutral-900 md:text-3xl">
               You may also like
             </h2>
-            <p className="mt-2 max-w-xl text-body-sm text-neutral-500">
+            <p className="mt-2 max-w-xl text-body-sm text-ink-muted">
               Similar titles in {book.category}, hand-picked for readers who
               enjoyed this book.
             </p>

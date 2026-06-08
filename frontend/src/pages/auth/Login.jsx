@@ -4,6 +4,7 @@ import { login } from '../../store/slices/authSlice'
 import { toast } from 'react-hot-toast'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useEffect } from 'react'
+import { BookOpen } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
@@ -17,43 +18,25 @@ const Login = () => {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAuthenticated, isLoading } = useSelector((state) => state.auth)
+  const { isAuthenticated, user, isLoading } = useSelector((state) => state.auth)
 
   useEffect(() => {
-    if (isAuthenticated) {
-      const storedUser = localStorage.getItem('user')
-      const user = storedUser ? JSON.parse(storedUser) : null
-      if (user) {
-        if (user.role === 'admin') {
-          navigate('/admin/dashboard', { replace: true })
-        } else if (user.role === 'seller') {
-          navigate('/seller/dashboard', { replace: true })
-        } else {
-          navigate('/', { replace: true })
-        }
-      }
-    }
-  }, [isAuthenticated, navigate])
+    if (!isAuthenticated || !user) return
+    if (user.role === 'admin') navigate('/admin/dashboard', { replace: true })
+    else if (user.role === 'seller') navigate('/seller/dashboard', { replace: true })
+    else navigate(location.state?.from?.pathname || '/', { replace: true })
+  }, [isAuthenticated, user, navigate, location.state])
 
   const onSubmit = async (data) => {
     try {
       const resultAction = await dispatch(login(data))
       if (login.fulfilled.match(resultAction)) {
-        toast.success('Login successful!')
-
-        const { user, token } = resultAction.payload
-
-        localStorage.setItem('token', token)
-        localStorage.setItem('user', JSON.stringify(user))
-
-        const from = location.state?.from?.pathname || '/'
-        if (user.role === 'admin') {
-          navigate('/admin/dashboard')
-        } else if (user.role === 'seller') {
-          navigate('/seller/dashboard')
-        } else {
-          navigate(from === '/login' ? '/' : from)
-        }
+        toast.success('Welcome back!')
+        const u = resultAction.payload.user
+        const from = location.state?.from?.pathname
+        if (u.role === 'admin') navigate('/admin/dashboard')
+        else if (u.role === 'seller') navigate('/seller/dashboard')
+        else navigate(from && from !== '/login' ? from : '/')
       } else {
         toast.error(resultAction.payload || 'Login failed')
       }
@@ -64,10 +47,13 @@ const Login = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12">
-      <Card className="w-full max-w-md p-8 shadow-card">
-        <h2 className="text-center text-h1">Login</h2>
-        <p className="mt-2 text-center text-body-sm text-neutral-600">
-          Welcome back to BooksBin
+      <Card className="w-full max-w-md border-neutral-200 p-8 shadow-card">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary-800 text-white">
+          <BookOpen className="h-6 w-6" aria-hidden />
+        </div>
+        <h2 className="mt-5 text-center text-h1">Sign in</h2>
+        <p className="mt-2 text-center text-body-sm text-ink-muted">
+          Buyers, sellers, and staff all sign in here. Your dashboard opens based on your account role.
         </p>
         <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5">
           <Input
@@ -85,14 +71,14 @@ const Login = () => {
             autoComplete="current-password"
           />
           <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? 'Logging in…' : 'Login'}
+            {isLoading ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-body-sm text-neutral-600">
-          Don&apos;t have an account?{' '}
+        <p className="mt-6 text-center text-body-sm text-ink-muted">
+          New here?{' '}
           <Link to="/register" className="link-primary font-medium">
-            Register
+            Create an account
           </Link>
         </p>
       </Card>

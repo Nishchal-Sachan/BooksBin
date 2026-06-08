@@ -1,5 +1,6 @@
 const express = require('express');
 const Book = require('../models/Book');
+const { PRODUCT_CATEGORIES, ISBN_OPTIONAL_CATEGORIES } = require('../constants/categories');
 const { authenticate, authorize, optionalAuth } = require('../middlewares/auth');
 const { validateBook, validatePagination, validateObjectId } = require('../middlewares/validation');
 
@@ -85,6 +86,62 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
   }
 });
 
+// Storefront data for homepage (must be before /:id)
+router.get('/storefront', async (req, res) => {
+  try {
+    const [featured, newArrivals, bestsellers, categoryAgg, totalBooks, priceRange] =
+      await Promise.all([
+        Book.find({ isActive: true, isFeatured: true })
+          .sort({ salesCount: -1 })
+          .limit(8)
+          .lean(),
+        Book.find({ isActive: true })
+          .sort({ createdAt: -1 })
+          .limit(8)
+          .lean(),
+        Book.find({ isActive: true })
+          .sort({ salesCount: -1, 'ratings.average': -1 })
+          .limit(8)
+          .lean(),
+        Book.aggregate([
+          { $match: { isActive: true } },
+          { $group: { _id: '$category', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+        ]),
+        Book.countDocuments({ isActive: true }),
+        Book.aggregate([
+          { $match: { isActive: true } },
+          {
+            $group: {
+              _id: null,
+              minPrice: { $min: '$price' },
+              maxPrice: { $max: '$price' },
+            },
+          },
+        ]),
+      ]);
+
+    res.json({
+      featured,
+      newArrivals,
+      bestsellers,
+      categories: categoryAgg.map((c) => ({
+        name: c._id,
+        count: c.count,
+      })),
+      stats: {
+        totalBooks,
+        totalCategories: categoryAgg.length,
+        minPrice: priceRange[0]?.minPrice ?? 0,
+        maxPrice: priceRange[0]?.maxPrice ?? 0,
+      },
+    });
+  } catch (error) {
+    console.error('Get storefront error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get featured books
 router.get('/featured', async (req, res) => {
   try {
@@ -97,6 +154,20 @@ router.get('/featured', async (req, res) => {
     res.json({ books });
   } catch (error) {
     console.error('Get featured books error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get book categories (must be before /:id)
+router.get('/categories/list', async (req, res) => {
+  try {
+    const activeCategories = await Book.distinct('category', { isActive: true });
+    res.json({
+      categories: PRODUCT_CATEGORIES,
+      activeCategories,
+    });
+  } catch (error) {
+    console.error('Get categories error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -149,11 +220,23 @@ router.get('/:id/related', validateObjectId('id'), async (req, res) => {
 // Create book (seller only)
 router.post('/', authenticate, authorize('seller', 'admin'), validateBook, async (req, res) => {
   try {
-    console.log("Incoming book data:", req.body); // 👈 log request
+    if (!req.body.images?.length || !req.body.images[0]?.url) {
+      return res.status(400).json({ message: 'Product image is required' });
+    }
+
     const bookData = {
       ...req.body,
       seller: req.user._id
     };
+
+    if (!bookData.isbn?.trim()) {
+      if (!ISBN_OPTIONAL_CATEGORIES.has(bookData.category)) {
+        return res.status(400).json({
+          message: 'ISBN is required for book categories. Posters and merch can omit ISBN.'
+        });
+      }
+      bookData.isbn = `SKU-${Date.now().toString(36).toUpperCase()}`;
+    }
 
     const book = new Book(bookData);
     await book.save();
@@ -184,9 +267,25 @@ router.put('/:id', authenticate, validateObjectId('id'), validateBook, async (re
       return res.status(403).json({ message: 'Not authorized to update this book' });
     }
 
+    const { replaceImagePublicId, ...updates } = req.body;
+
+    if (updates.images?.length) {
+      const newPublicId = updates.images[0]?.publicId;
+      const oldPublicId = book.images?.[0]?.publicId;
+      const toDelete = replaceImagePublicId || (newPublicId && oldPublicId !== newPublicId ? oldPublicId : null);
+      if (toDelete && toDelete !== newPublicId) {
+        try {
+          const { deleteImage } = require('../services/cloudinary');
+          await deleteImage(toDelete);
+        } catch (err) {
+          console.warn('Could not delete old Cloudinary image:', err.message);
+        }
+      }
+    }
+
     const updatedBook = await Book.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updates,
       { new: true, runValidators: true }
     ).populate('seller', 'name email');
 
@@ -220,17 +319,6 @@ router.delete('/:id', authenticate, validateObjectId('id'), async (req, res) => 
     res.json({ message: 'Book deleted successfully' });
   } catch (error) {
     console.error('Delete book error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get book categories
-router.get('/categories/list', async (req, res) => {
-  try {
-    const categories = await Book.distinct('category', { isActive: true });
-    res.json({ categories });
-  } catch (error) {
-    console.error('Get categories error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

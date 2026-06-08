@@ -2,7 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../models/User');
-const { generateToken, generateRefreshToken, authenticate } = require('../middlewares/auth');
+const { generateToken, generateRefreshToken, authenticate, verifyRefreshToken } = require('../middlewares/auth');
+const { setAuthCookies, clearAuthCookies, getRefreshToken } = require('../utils/authCookies');
 const { validateUserRegistration, validateUserLogin, validatePasswordReset, validatePasswordUpdate } = require('../middlewares/validation');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 
@@ -11,7 +12,7 @@ const router = express.Router();
 // Register
 router.post('/register', validateUserRegistration, async (req, res) => {
   try {
-    const { name, email, password, role = 'user' } = req.body;
+    const { name, email, password } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -19,12 +20,12 @@ router.post('/register', validateUserRegistration, async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
-    // Create user
+    // Public registration is buyers only; sellers are provisioned via seed/env
     const user = new User({
       name,
       email,
       password,
-      role: role === 'seller' ? 'seller' : 'user',
+      role: 'user',
       emailVerificationToken: crypto.randomBytes(32).toString('hex')
     });
 
@@ -42,11 +43,11 @@ router.post('/register', validateUserRegistration, async (req, res) => {
       // Continue anyway, user can request resend later
     }
 
+    setAuthCookies(res, token, refreshToken);
+
     res.status(201).json({
       message: 'User registered successfully. Please check your email for verification.',
       user: user.toJSON(),
-      token,
-      refreshToken
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -84,11 +85,11 @@ router.post('/login', validateUserLogin, async (req, res) => {
     const token = generateToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
+    setAuthCookies(res, token, refreshToken);
+
     res.json({
       message: 'Login successful',
       user: user.toJSON(),
-      token,
-      refreshToken
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -96,16 +97,16 @@ router.post('/login', validateUserLogin, async (req, res) => {
   }
 });
 
-// Refresh token
+// Refresh session (reads HttpOnly refresh cookie)
 router.post('/refresh', async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = getRefreshToken(req) || req.body.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({ message: 'Refresh token required' });
     }
 
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const decoded = verifyRefreshToken(refreshToken);
     const user = await User.findById(decoded.userId);
 
     if (!user || !user.isActive) {
@@ -115,11 +116,11 @@ router.post('/refresh', async (req, res) => {
     const newToken = generateToken(user._id);
     const newRefreshToken = generateRefreshToken(user._id);
 
-    res.json({
-      token: newToken,
-      refreshToken: newRefreshToken
-    });
+    setAuthCookies(res, newToken, newRefreshToken);
+
+    res.json({ message: 'Session refreshed' });
   } catch (error) {
+    clearAuthCookies(res);
     res.status(401).json({ message: 'Invalid refresh token' });
   }
 });
@@ -184,7 +185,9 @@ router.post('/forgot-password', validatePasswordReset, async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.json({
+        message: 'If an account exists for that email, a password reset link has been sent.',
+      });
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -258,10 +261,10 @@ router.get('/verify-email/:token', async (req, res) => {
   }
 });
 
-// Logout
-router.post('/logout', authenticate, async (req, res) => {
+// Logout — clears HttpOnly session cookies
+router.post('/logout', async (req, res) => {
   try {
-    // In a more sophisticated setup, you might want to blacklist the token
+    clearAuthCookies(res);
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

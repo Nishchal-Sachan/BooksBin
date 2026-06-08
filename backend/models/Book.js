@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { PRODUCT_CATEGORIES } = require('../constants/categories');
 
 const bookSchema = new mongoose.Schema({
   title: {
@@ -9,18 +10,17 @@ const bookSchema = new mongoose.Schema({
   },
   author: {
     type: String,
-    required: [true, 'Author is required'],
+    required: [true, 'Author or brand is required'],
     trim: true,
     maxlength: [100, 'Author name cannot exceed 100 characters']
   },
   isbn: {
     type: String,
-    required: [true, 'ISBN is required'],
     unique: true,
-    // FIX: regex now accepts ISBN-10 or ISBN-13 with optional dashes/spaces
+    sparse: true,
     match: [
-      /^(97(8|9))?\d{9}(\d|X)$|^(97(8|9))?[\d- ]{10,17}$/,
-      'Please enter a valid ISBN (ISBN-10 or ISBN-13)'
+      /^(97(8|9))?\d{9}(\d|X)$|^(97(8|9))?[\d- ]{10,17}$|^SKU-[A-Z0-9]+$/i,
+      'Please enter a valid ISBN or product SKU'
     ]
   },
   description: {
@@ -31,12 +31,7 @@ const bookSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Category is required'],
-    enum: [
-      'Fiction', 'Non-Fiction', 'Science & Technology', 'Biographies', 'Children',
-      'Comics & Graphic Novels', 'Education & Reference', 'History', 'Self-Help',
-      'Business & Economics', 'Fantasy', 'Mystery & Thriller', 'Romance',
-      'Health & Wellness', 'Other'
-    ]
+    enum: PRODUCT_CATEGORIES
   },
   price: {
     type: Number,

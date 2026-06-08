@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { getCurrentUser } from './store/slices/authSlice'
+import { getCart, clearCartState } from './store/slices/cartSlice'
 
 // Layout components
 import Navbar from './components/layout/Navbar'
@@ -16,15 +17,20 @@ import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
+import VerifyEmail from './pages/auth/VerifyEmail'
 
 // Protected pages
+import UserDashboard from './pages/user/Dashboard'
 import Profile from './pages/user/Profile'
+import Addresses from './pages/user/Addresses'
 import Orders from './pages/user/Orders'
+import Unauthorized from './pages/Unauthorized'
 import OrderDetail from './pages/user/OrderDetail'
 import Wishlist from './pages/user/Wishlist'
 import Cart from './pages/user/Cart'
 import Checkout from './pages/user/Checkout'
 import OrderSuccess from './pages/user/OrderSuccess'
+import MyReviews from './pages/user/MyReviews'
 
 // Seller pages
 import SellerDashboard from './pages/seller/Dashboard'
@@ -49,10 +55,14 @@ function App() {
   const { isAuthenticated, isLoading } = useSelector((state) => state.auth)
 
   useEffect(() => {
-    // Check if user is logged in on app load
-    const token = localStorage.getItem('token')
-    if (token && !isAuthenticated) {
-      dispatch(getCurrentUser())
+    dispatch(getCurrentUser())
+  }, [dispatch])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(getCart())
+    } else {
+      dispatch(clearCartState())
     }
   }, [dispatch, isAuthenticated])
 
@@ -78,13 +88,31 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
           {/* Protected user routes */}
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/profile"
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/addresses"
+            element={
+              <ProtectedRoute>
+                <Addresses />
               </ProtectedRoute>
             }
           />
@@ -109,6 +137,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Wishlist />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-reviews"
+            element={
+              <ProtectedRoute>
+                <MyReviews />
               </ProtectedRoute>
             }
           />
@@ -220,7 +256,7 @@ function App() {
               <div className="section-y bg-surface-subtle">
                 <PageContainer className="py-20 text-center">
                   <h1 className="text-h1">Page not found</h1>
-                  <p className="mt-3 text-body text-neutral-600">
+                  <p className="mt-3 text-body text-ink-muted">
                     The page you are looking for does not exist.
                   </p>
                 </PageContainer>

@@ -1,26 +1,26 @@
 import { forwardRef } from 'react'
 import { cn } from '../../utils/cn'
 
-const variants = {
-  primary:
-    'bg-primary-600 text-white shadow-soft hover:bg-primary-700 hover:shadow-card focus-visible:ring-primary-500/40',
+const variantStyles = {
+  primary: 'ui-btn-primary bg-primary-800 shadow-soft hover:bg-primary-900 hover:shadow-card focus-visible:ring-primary-600/50',
   secondary:
-    'bg-neutral-100 text-neutral-800 hover:bg-neutral-200 focus-visible:ring-neutral-400/30',
+    'ui-btn-secondary bg-neutral-200 text-ink hover:bg-neutral-300 focus-visible:ring-neutral-400/40',
   outline:
-    'border border-neutral-200 bg-white text-neutral-700 shadow-soft hover:border-neutral-300 hover:bg-surface-subtle focus-visible:ring-primary-500/25',
-  ghost: 'text-neutral-600 hover:bg-neutral-100 focus-visible:ring-neutral-400/30',
+    'ui-btn-outline border border-neutral-300 bg-white text-ink-muted shadow-soft hover:border-neutral-400 hover:bg-surface-subtle focus-visible:ring-primary-500/30',
+  ghost:
+    'ui-btn-ghost text-ink-muted hover:bg-neutral-100 hover:text-ink focus-visible:ring-neutral-400/30',
   danger:
-    'bg-error text-white shadow-soft hover:opacity-95 focus-visible:ring-error/40',
+    'ui-btn-danger bg-error shadow-soft hover:bg-red-700 focus-visible:ring-error/40',
   inverse:
-    'bg-white text-primary-700 shadow-card hover:bg-primary-50 focus-visible:ring-primary-500/35',
+    'ui-btn-inverse bg-white text-primary-900 shadow-card hover:bg-primary-50 focus-visible:ring-white/50',
   outlineInverse:
-    'border-2 border-white/90 bg-transparent text-white hover:bg-white/10 focus-visible:ring-white/35',
+    'ui-btn-outline-inverse border-2 border-white bg-transparent hover:bg-white/15 focus-visible:ring-white/40',
 }
 
 const sizes = {
-  sm: 'h-9 px-3 text-small rounded-lg gap-1.5',
-  md: 'h-11 px-4 text-body-sm rounded-lg gap-2',
-  lg: 'h-12 px-6 text-body rounded-xl gap-2',
+  sm: 'h-9 px-3 text-sm rounded-lg gap-1.5',
+  md: 'h-11 px-4 text-sm rounded-lg gap-2',
+  lg: 'h-12 px-6 text-base rounded-xl gap-2',
   icon: 'h-10 w-10 shrink-0 rounded-lg p-0',
 }
 
@@ -39,15 +39,20 @@ const Button = forwardRef(
     ref
   ) => {
     const isNativeButton = As === 'button'
+    const isLink = !isNativeButton
+
     return (
       <As
         ref={ref}
         type={isNativeButton ? type : undefined}
         disabled={disabled}
+        data-ui="button"
+        data-variant={variant}
         className={cn(
-          'inline-flex items-center justify-center font-medium transition-button focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:scale-100',
-          variants[variant],
+          'inline-flex items-center justify-center font-semibold transition-button focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:scale-100',
+          variantStyles[variant],
           sizes[size],
+          isLink && 'no-underline',
           disabled && 'pointer-events-none opacity-50',
           className
         )}

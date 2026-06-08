@@ -17,9 +17,6 @@ const registerSchema = z
     email: z.string().email('Please enter a valid email address'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string(),
-    role: z.enum(['user', 'seller'], {
-      required_error: 'Please select a role',
-    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -39,14 +36,11 @@ const Register = () => {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      role: 'user',
-    },
   })
 
   const onSubmit = async (data) => {
     try {
-      const resultAction = await dispatch(register(data))
+      const resultAction = await dispatch(register({ ...data, role: 'user' }))
       if (register.fulfilled.match(resultAction)) {
         toast.success('Registration successful!')
 
@@ -72,13 +66,18 @@ const Register = () => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="flex justify-center">
-            <BookOpen className="h-12 w-12 text-primary-600" aria-hidden />
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary-800 text-white">
+              <BookOpen className="h-7 w-7" aria-hidden />
+            </div>
           </div>
           <h2 className="mt-6 text-h1">Create your account</h2>
-          <p className="mt-2 text-body-sm text-neutral-600">
-            Or{' '}
+          <p className="mt-2 text-body-sm text-ink-muted">
+            Shop books, track orders, and pay cash on delivery.
+          </p>
+          <p className="mt-1 text-body-sm text-ink-muted">
+            Already have an account?{' '}
             <Link to="/login" className="link-primary font-medium">
-              sign in to your existing account
+              Sign in
             </Link>
           </p>
         </div>
@@ -119,7 +118,7 @@ const Register = () => {
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 transition-colors hover:text-neutral-600"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 transition-colors hover:text-ink-muted"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
@@ -155,7 +154,7 @@ const Register = () => {
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 transition-colors hover:text-neutral-600"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 transition-colors hover:text-ink-muted"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   aria-label={
                     showConfirmPassword ? 'Hide password' : 'Show password'
@@ -173,51 +172,6 @@ const Register = () => {
                   {errors.confirmPassword.message}
                 </p>
               )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="role"
-                className="mb-2 block text-small font-medium text-neutral-700"
-              >
-                Account type
-              </label>
-              <select
-                {...registerForm('role')}
-                id="role"
-                className="select-field"
-              >
-                <option value="user">Customer — Buy books</option>
-                <option value="seller">Seller — Sell books</option>
-              </select>
-              {errors.role && (
-                <p className="mt-1.5 text-small text-error" role="alert">
-                  {errors.role.message}
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-start gap-3 pt-1">
-              <input
-                id="terms"
-                name="terms"
-                type="checkbox"
-                required
-                className="mt-1 h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500/30"
-              />
-              <label
-                htmlFor="terms"
-                className="text-body-sm text-neutral-700"
-              >
-                I agree to the{' '}
-                <Link to="/terms" className="link-primary">
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link to="/privacy" className="link-primary">
-                  Privacy Policy
-                </Link>
-              </label>
             </div>
 
             <Button type="submit" disabled={isLoading} className="w-full">

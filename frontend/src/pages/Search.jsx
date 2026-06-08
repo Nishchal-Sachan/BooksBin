@@ -105,7 +105,7 @@ const Search = () => {
             <Spinner size="lg" />
           </div>
         ) : books.length === 0 ? (
-          <div className="py-20 text-center text-body text-neutral-500">
+          <div className="py-20 text-center text-body text-ink-muted">
             No results found.
           </div>
         ) : (
@@ -137,7 +137,7 @@ const Search = () => {
                 >
                   Previous
                 </Button>
-                <span className="px-3 py-2 text-body-sm text-neutral-600">
+                <span className="px-3 py-2 text-body-sm text-ink-muted">
                   Page {pagination.currentPage} of {pagination.totalPages}
                 </span>
                 <Button

@@ -15,19 +15,19 @@ import { Card } from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import BookListingCard from '../components/books/BookListingCard'
 import BookListingCardSkeleton from '../components/books/BookListingCardSkeleton'
-import {
-  MOCK_BOOKS_CATALOG,
-  CATALOG_PRICE_BOUNDS,
-  CATALOG_CATEGORIES,
-} from '../data/booksCatalogMock'
+import api from '../store/api/api'
+import { BOOK_CATEGORIES } from '../utils/bookHelpers'
 import { formatPrice } from '../utils/format'
+import { FREE_SHIPPING_THRESHOLD } from '../utils/constants'
 import { cn } from '../utils/cn'
 
 const PAGE_SIZE = 12
 const SORT_OPTIONS = [
+  { value: 'rating_desc', label: 'Top rated' },
+  { value: 'bestseller', label: 'Bestselling' },
+  { value: 'newest', label: 'Newest' },
   { value: 'price_asc', label: 'Price: low to high' },
   { value: 'price_desc', label: 'Price: high to low' },
-  { value: 'rating_desc', label: 'Customer rating' },
 ]
 
 const RATING_OPTIONS = [
@@ -37,7 +37,7 @@ const RATING_OPTIONS = [
   { value: '2', label: '2★ & up' },
 ]
 
-const DEMO_ID_PREFIX = 'cat-'
+const PRICE_BOUNDS = { min: 0, max: 5000 }
 
 function SidebarFilters({
   category,
@@ -50,6 +50,7 @@ function SidebarFilters({
   minRating,
   setMinRating,
   onReset,
+  categories = [],
   idPrefix = '',
   className,
 }) {
@@ -57,12 +58,12 @@ function SidebarFilters({
   return (
     <aside
       className={cn(
-        'flex flex-col gap-8 rounded-xl border border-neutral-200/90 bg-surface p-5 shadow-soft lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto',
+        'flex flex-col gap-8 rounded-xl border border-neutral-200 bg-white p-5 shadow-soft lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto',
         className
       )}
     >
       <div>
-        <h2 className="text-small font-semibold uppercase tracking-wide text-neutral-500">
+        <h2 className="text-small font-semibold uppercase tracking-wide text-ink-muted">
           Categories
         </h2>
         <ul className="mt-3 space-y-1">
@@ -80,7 +81,7 @@ function SidebarFilters({
               All books
             </button>
           </li>
-          {CATALOG_CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <li key={c}>
               <button
                 type="button"
@@ -100,17 +101,17 @@ function SidebarFilters({
       </div>
 
       <div>
-        <h2 className="text-small font-semibold uppercase tracking-wide text-neutral-500">
+        <h2 className="text-small font-semibold uppercase tracking-wide text-ink-muted">
           Price range
         </h2>
-        <p className="mt-2 text-small text-neutral-500">
+        <p className="mt-2 text-small text-ink-muted">
           {formatPrice(priceMin)} — {formatPrice(priceMax)}
         </p>
         <div className="mt-4 space-y-4">
           <div>
             <label
               htmlFor={`${p}price-min`}
-              className="text-small font-medium text-neutral-600"
+              className="text-small font-medium text-ink-muted"
             >
               Minimum
             </label>
@@ -132,7 +133,7 @@ function SidebarFilters({
           <div>
             <label
               htmlFor={`${p}price-max`}
-              className="text-small font-medium text-neutral-600"
+              className="text-small font-medium text-ink-muted"
             >
               Maximum
             </label>
@@ -155,7 +156,7 @@ function SidebarFilters({
       </div>
 
       <div>
-        <h2 className="text-small font-semibold uppercase tracking-wide text-neutral-500">
+        <h2 className="text-small font-semibold uppercase tracking-wide text-ink-muted">
           Rating
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -168,7 +169,7 @@ function SidebarFilters({
                 'rounded-full border px-3 py-1.5 text-small font-medium transition-colors',
                 minRating === opt.value
                   ? 'border-primary-500 bg-primary-50 text-primary-800'
-                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                  : 'border-neutral-200 bg-white text-ink-muted hover:border-neutral-300'
               )}
             >
               {opt.label}
@@ -188,75 +189,102 @@ export default function Books() {
   const dispatch = useDispatch()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const bounds = CATALOG_PRICE_BOUNDS
-  const [category, setCategory] = useState('')
+  const bounds = PRICE_BOUNDS
+  const [category, setCategory] = useState(() => searchParams.get('category') || '')
   const [priceMin, setPriceMin] = useState(bounds.min)
   const [priceMax, setPriceMax] = useState(bounds.max)
   const [minRating, setMinRating] = useState('')
-  const [sort, setSort] = useState('rating_desc')
+  const [sort, setSort] = useState(() => searchParams.get('sort') || 'rating_desc')
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState(() => searchParams.get('search') || '')
   const [isLoading, setIsLoading] = useState(true)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [books, setBooks] = useState([])
+  const [pagination, setPagination] = useState({ totalBooks: 0, totalPages: 1 })
+  const [categories, setCategories] = useState(BOOK_CATEGORIES)
 
   useEffect(() => {
-    const q = searchParams.get('search')
-    if (q != null && q !== search) setSearch(q)
+    const q = searchParams.get('search') ?? ''
+    const cat = searchParams.get('category') ?? ''
+    const s = searchParams.get('sort') ?? 'rating_desc'
+    if (q !== search) setSearch(q)
+    if (cat !== category) setCategory(cat)
+    if (s !== sort) setSort(s)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
   useEffect(() => {
-    setIsLoading(true)
-    const t = window.setTimeout(() => setIsLoading(false), 480)
-    return () => window.clearTimeout(t)
-  }, [category, priceMin, priceMax, minRating, sort])
+    api.get('/books/categories/list')
+      .then((res) => {
+        if (res.data.categories?.length) setCategories(res.data.categories)
+      })
+      .catch(() => {})
+  }, [])
 
-  const filteredSorted = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const minR = minRating === '' ? 0 : Number(minRating)
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      try {
+        let sortBy = 'ratings.average'
+        let sortOrder = 'desc'
+        if (sort === 'price_asc' || sort === 'price_desc') {
+          sortBy = 'price'
+          sortOrder = sort === 'price_asc' ? 'asc' : 'desc'
+        } else if (sort === 'newest') {
+          sortBy = 'createdAt'
+          sortOrder = 'desc'
+        } else if (sort === 'bestseller') {
+          sortBy = 'salesCount'
+          sortOrder = 'desc'
+        }
+        const params = {
+          page,
+          limit: PAGE_SIZE,
+          sortBy,
+          sortOrder,
+          minPrice: priceMin,
+          maxPrice: priceMax,
+        }
+        if (category) params.category = category
+        if (minRating) params.minRating = minRating
+        if (search.trim()) params.search = search.trim()
 
-    let list = MOCK_BOOKS_CATALOG.filter((b) => {
-      if (category && b.category !== category) return false
-      if (b.price < priceMin || b.price > priceMax) return false
-      if ((b.ratings?.average ?? 0) < minR) return false
-      if (q) {
-        const hay = `${b.title} ${b.author}`.toLowerCase()
-        if (!hay.includes(q)) return false
+        const { data } = await api.get('/books', { params })
+        if (!cancelled) {
+          setBooks(data.books || [])
+          setPagination(data.pagination || { totalBooks: 0, totalPages: 1 })
+        }
+      } catch {
+        if (!cancelled) {
+          setBooks([])
+          toast.error('Failed to load books')
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
-      return true
-    })
-
-    if (sort === 'price_asc') {
-      list = [...list].sort((a, b) => a.price - b.price)
-    } else if (sort === 'price_desc') {
-      list = [...list].sort((a, b) => b.price - a.price)
-    } else {
-      list = [...list].sort(
-        (a, b) => (b.ratings?.average ?? 0) - (a.ratings?.average ?? 0)
-      )
     }
-    return list
-  }, [category, priceMin, priceMax, minRating, sort, search])
+    load()
+    return () => { cancelled = true }
+  }, [category, priceMin, priceMax, minRating, sort, page, search])
 
-  const totalFiltered = filteredSorted.length
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE))
-  const safePage = Math.min(page, totalPages)
+  const totalFiltered = pagination.totalBooks
+  const totalPages = pagination.totalPages || 1
+  const safePage = page
   const pageStart = (safePage - 1) * PAGE_SIZE
-  const pageBooks = filteredSorted.slice(pageStart, pageStart + PAGE_SIZE)
+  const pageBooks = books
 
   useEffect(() => {
     setPage(1)
   }, [category, priceMin, priceMax, minRating, sort, search])
 
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages)
-  }, [page, totalPages])
-
   const syncUrl = useCallback(() => {
     const next = new URLSearchParams()
     if (search.trim()) next.set('search', search.trim())
+    if (category) next.set('category', category)
+    if (sort && sort !== 'rating_desc') next.set('sort', sort)
     setSearchParams(next, { replace: true })
-  }, [search, setSearchParams])
+  }, [search, category, sort, setSearchParams])
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
@@ -279,11 +307,7 @@ export default function Books() {
   const handleAddToCart = async (bookId, book) => {
     try {
       await dispatch(addToCart({ bookId, quantity: 1 })).unwrap()
-      toast.success(
-        String(bookId).startsWith(DEMO_ID_PREFIX)
-          ? `“${book?.title ?? 'Book'}” added to cart`
-          : 'Added to cart'
-      )
+      toast.success(`“${book?.title ?? 'Book'}” added to cart`)
     } catch (e) {
       toast.error(e || 'Failed to add to cart')
     }
@@ -292,7 +316,7 @@ export default function Books() {
   const rangeLabel =
     totalFiltered === 0
       ? '0 results'
-      : `Showing ${pageStart + 1}–${Math.min(pageStart + pageBooks.length, totalFiltered)} of ${totalFiltered}`
+      : `Showing ${pageStart + 1}–${pageStart + pageBooks.length} of ${totalFiltered}`
 
   const renderSidebar = (idPrefix) => (
     <SidebarFilters
@@ -307,6 +331,7 @@ export default function Books() {
       minRating={minRating}
       setMinRating={setMinRating}
       onReset={resetFilters}
+      categories={categories}
     />
   )
 
@@ -315,21 +340,18 @@ export default function Books() {
       <PageContainer>
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-small font-semibold uppercase tracking-wide text-primary-600">
-              Shop
-            </p>
-            <h1 className="text-h1 md:text-display mt-1">All books</h1>
-            <p className="mt-2 max-w-xl text-body-sm text-neutral-600">
-              Browse our catalog with filters, sort by price or rating, and build
-              your next read — same layout you&apos;d expect from a major
-              bookstore.
+            <p className="eyebrow">Shop</p>
+            <h1 className="mt-1 text-h1 md:text-display">Browse the catalog</h1>
+            <p className="mt-2 max-w-xl text-body-sm text-ink-muted">
+              Books, posters, stationery, and more. Filter by category, price, and
+              rating — checkout with cash on delivery.
             </p>
           </div>
-          <Card className="flex items-center gap-3 border-primary-100/80 bg-gradient-to-br from-primary-50/90 to-surface p-4 shadow-soft">
-            <Sparkles className="h-8 w-8 shrink-0 text-primary-500" />
-            <p className="text-body-sm text-neutral-700">
-              <span className="font-semibold text-neutral-900">Free delivery</span>{' '}
-              on orders over $35 — demo catalog with realistic pricing.
+          <Card className="flex items-center gap-3 border-primary-200 bg-primary-50 p-4">
+            <Sparkles className="h-8 w-8 shrink-0 text-primary-700" />
+            <p className="text-body-sm text-ink-muted">
+              <span className="font-semibold text-ink">Free delivery</span>{' '}
+              on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.
             </p>
           </Card>
         </div>
@@ -368,13 +390,13 @@ export default function Books() {
 
           <main className="min-w-0 flex-1">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-body-sm text-neutral-600">
+              <p className="text-body-sm text-ink-muted">
                 <span className="font-medium text-neutral-900">{rangeLabel}</span>
                 <span className="text-neutral-400"> · </span>
-                {MOCK_BOOKS_CATALOG.length} titles in catalog
+                {totalFiltered} titles in catalog
               </p>
               <div className="flex items-center gap-2">
-                <label htmlFor="sort-books" className="text-small text-neutral-500">
+                <label htmlFor="sort-books" className="text-small text-ink-muted">
                   Sort
                 </label>
                 <select
@@ -404,7 +426,7 @@ export default function Books() {
                 <h2 className="mt-6 text-h2 text-neutral-800">
                   No books match your filters
                 </h2>
-                <p className="mx-auto mt-2 max-w-md text-body-sm text-neutral-500">
+                <p className="mx-auto mt-2 max-w-md text-body-sm text-ink-muted">
                   Try widening the price range, clearing the category, or
                   resetting filters to see the full catalog again.
                 </p>
@@ -438,7 +460,7 @@ export default function Books() {
                     >
                       Previous
                     </Button>
-                    <span className="px-3 py-2 text-body-sm text-neutral-600">
+                    <span className="px-3 py-2 text-body-sm text-ink-muted">
                       Page {safePage} of {totalPages}
                     </span>
                     <Button
@@ -485,12 +507,12 @@ export default function Books() {
         >
           <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
             <span className="flex items-center gap-2 font-semibold text-neutral-900">
-              <Filter className="h-5 w-5 text-primary-600" />
+              <Filter className="h-5 w-5 text-primary-800" />
               Filters
             </span>
             <button
               type="button"
-              className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100"
+              className="rounded-lg p-2 text-ink-muted hover:bg-neutral-100"
               onClick={() => setMobileFiltersOpen(false)}
               aria-label="Close"
             >

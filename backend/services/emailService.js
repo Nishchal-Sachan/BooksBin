@@ -19,7 +19,7 @@ const sendVerificationEmail = async (email, token) => {
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
     const subject = 'Verify your email address';
     const html = `
-    <h1>Welcome to BookStore!</h1>
+    <h1>Welcome to BooksBin!</h1>
     <p>Please click the link below to verify your email address:</p>
     <a href="${verificationUrl}">${verificationUrl}</a>
     <p>If you didn't create an account, please ignore this email.</p>

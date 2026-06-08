@@ -110,7 +110,7 @@ router.delete('/addresses/:addressId', authenticate, async (req, res) => {
     }
 
     const wasDefault = address.isDefault;
-    address.remove();
+    user.addresses.pull(addressId);
 
     // If we removed the default address, make the first remaining one default
     if (wasDefault && user.addresses.length > 0) {

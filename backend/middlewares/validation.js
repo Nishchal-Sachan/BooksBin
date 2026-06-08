@@ -1,4 +1,5 @@
 const { body, param, query, validationResult } = require('express-validator');
+const { PRODUCT_CATEGORIES } = require('../constants/categories');
 
 // Validation error handler
 const handleValidationErrors = (req, res, next) => {
@@ -68,18 +69,16 @@ const validateBook = [
     .isLength({ min: 1, max: 100 })
     .withMessage('Author must be between 1 and 100 characters'),
   body('isbn')
+    .optional({ values: 'falsy' })
     .trim()
     .isLength({ min: 10, max: 17 })
-    .withMessage('ISBN must be between 10 and 17 characters'),
+    .withMessage('ISBN must be between 10 and 17 characters when provided'),
   body('description')
     .trim()
     .isLength({ min: 10, max: 2000 })
     .withMessage('Description must be between 10 and 2000 characters'),
   body('category')
-    .isIn(['Fiction', 'Non-Fiction', 'Science & Technology', 'Biographies', 'Children',
-      'Comics & Graphic Novels', 'Education & Reference', 'History', 'Self-Help',
-      'Business & Economics', 'Fantasy', 'Mystery & Thriller', 'Romance',
-      'Health & Wellness', 'Other'])
+    .isIn(PRODUCT_CATEGORIES)
     .withMessage('Invalid category'),
   body('price')
     .isFloat({ min: 0 })
@@ -109,6 +108,16 @@ const validateReview = [
     .isLength({ max: 100 })
     .withMessage('Title cannot exceed 100 characters'),
   handleValidationErrors
+];
+
+const validateCreateReview = [
+  body('bookId')
+    .isMongoId()
+    .withMessage('Valid book ID is required'),
+  body('orderId')
+    .isMongoId()
+    .withMessage('Valid order ID is required'),
+  ...validateReview,
 ];
 
 // Order validation rules
@@ -156,6 +165,10 @@ const validateOrder = [
     .trim()
     .notEmpty()
     .withMessage('Country is required'),
+  body('paymentMethod')
+    .optional()
+    .isIn(['cod', 'razorpay', 'stripe'])
+    .withMessage('Invalid payment method'),
   handleValidationErrors
 ];
 
@@ -220,6 +233,7 @@ module.exports = {
   validatePasswordUpdate,
   validateBook,
   validateReview,
+  validateCreateReview,
   validateOrder,
   validateAddress,
   validatePagination,

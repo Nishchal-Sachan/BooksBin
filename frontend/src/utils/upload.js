@@ -1,45 +1,30 @@
-export const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
-export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png']
+import api from '../store/api/api'
+
+export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 export function validateImageFile(file) {
   if (!file) return { valid: false, error: 'No file selected' }
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return { valid: false, error: 'Only JPG/PNG images are allowed' }
+    return { valid: false, error: 'Only JPG, PNG, or WebP images are allowed' }
   }
   if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    return { valid: false, error: 'Image must be smaller than 2MB' }
+    return { valid: false, error: 'Image must be smaller than 5 MB' }
   }
   return { valid: true }
 }
 
-export async function uploadImageToCloudinary(file) {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-
-  if (!cloudName || !uploadPreset) {
-    throw new Error('Cloudinary is not configured. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in frontend/.env')
-  }
+/** Upload via authenticated backend → Cloudinary (production flow) */
+export async function uploadProductImage(file) {
+  const check = validateImageFile(file)
+  if (!check.valid) throw new Error(check.error)
 
   const formData = new FormData()
-  formData.append('file', file)
-  formData.append('upload_preset', uploadPreset)
+  formData.append('image', file)
 
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: 'POST',
-    body: formData,
+  const { data } = await api.post('/upload/product-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
   })
 
-  if (!response.ok) {
-    const errText = await response.text()
-    throw new Error(errText || 'Image upload failed')
-  }
-
-  const data = await response.json()
-  return {
-    url: data.secure_url,
-    publicId: data.public_id
-  }
+  return data.image
 }
-
-
-

@@ -55,8 +55,10 @@ export const SORT_OPTIONS = [
 
 export const PAGINATION_LIMITS = [12, 24, 48, 96]
 
-export const CURRENCY_SYMBOL = '$'
+export const CURRENCY_CODE = 'INR'
+export const CURRENCY_SYMBOL = '₹'
 
-export const SHIPPING_COST = 5.99
-export const FREE_SHIPPING_THRESHOLD = 50
-export const TAX_RATE = 0.1 // 10%
+/** Values in Indian Rupees */
+export const SHIPPING_COST = 49
+export const FREE_SHIPPING_THRESHOLD = 499
+export const TAX_RATE = 0.1 // 10% GST

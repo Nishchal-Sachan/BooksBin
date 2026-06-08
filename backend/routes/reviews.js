@@ -3,7 +3,14 @@ const Review = require('../models/Review');
 const Order = require('../models/Order');
 const Book = require('../models/Book');
 const { authenticate } = require('../middlewares/auth');
-const { validateReview, validatePagination, validateObjectId } = require('../middlewares/validation');
+const {
+  validateReview,
+  validateCreateReview,
+  validatePagination,
+  validateObjectId,
+} = require('../middlewares/validation');
+
+const REVIEWABLE_STATUSES = ['shipped', 'delivered'];
 
 const router = express.Router();
 
@@ -64,6 +71,67 @@ router.get('/book/:bookId', validateObjectId('bookId'), validatePagination, asyn
   }
 });
 
+// Check if the logged-in user can review a book
+router.get(
+  '/eligibility/:bookId',
+  authenticate,
+  validateObjectId('bookId'),
+  async (req, res) => {
+    try {
+      const { bookId } = req.params;
+      const book = await Book.findById(bookId).select('_id title');
+      if (!book) {
+        return res.status(404).json({ message: 'Book not found' });
+      }
+
+      const existingReview = await Review.findOne({
+        user: req.user._id,
+        book: bookId,
+      })
+        .populate('user', 'name')
+        .lean();
+
+      if (existingReview) {
+        return res.json({
+          canReview: false,
+          canEdit: true,
+          reason: 'You have already reviewed this product.',
+          existingReview,
+          eligibleOrderId: existingReview.order,
+        });
+      }
+
+      const eligibleOrder = await Order.findOne({
+        customer: req.user._id,
+        'items.book': bookId,
+        status: { $in: REVIEWABLE_STATUSES },
+      })
+        .sort({ createdAt: -1 })
+        .select('_id orderNumber status createdAt')
+        .lean();
+
+      if (!eligibleOrder) {
+        return res.json({
+          canReview: false,
+          canEdit: false,
+          reason:
+            'You can review after your order is shipped or delivered. Open your order from Account → Orders.',
+        });
+      }
+
+      res.json({
+        canReview: true,
+        canEdit: false,
+        eligibleOrderId: eligibleOrder._id,
+        eligibleOrder,
+      });
+    } catch (error) {
+      console.error('Review eligibility error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
+
 // Get user's reviews
 router.get('/my-reviews', authenticate, validatePagination, async (req, res) => {
   try {
@@ -95,7 +163,7 @@ router.get('/my-reviews', authenticate, validatePagination, async (req, res) => 
 });
 
 // Create review
-router.post('/', authenticate, validateReview, async (req, res) => {
+router.post('/', authenticate, validateCreateReview, async (req, res) => {
   try {
     const { bookId, orderId, rating, title, comment, images } = req.body;
 
@@ -110,7 +178,7 @@ router.post('/', authenticate, validateReview, async (req, res) => {
       customer: req.user._id,
       _id: orderId,
       'items.book': bookId,
-      status: { $in: ['delivered', 'shipped'] }
+      status: { $in: REVIEWABLE_STATUSES }
     });
 
     if (!order) {
@@ -196,7 +264,9 @@ router.delete('/:reviewId', authenticate, validateObjectId('reviewId'), async (r
       return res.status(403).json({ message: 'Not authorized to delete this review' });
     }
 
+    const bookId = review.book;
     await Review.findByIdAndDelete(reviewId);
+    await Review.updateBookRatings(bookId);
 
     res.json({ message: 'Review deleted successfully' });
   } catch (error) {

@@ -1,97 +1,97 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import { resolveBookForCart } from '../../utils/cartResolve'
-import { loadCartEntries, saveCartEntries } from '../../utils/localCartStorage'
+import api from '../api/api'
+import { calcCartTotals } from '../../utils/bookHelpers'
 
-const DISCOUNT_MIN_SUBTOTAL = 45
-const DISCOUNT_RATE = 0.1
-
-function recalcFromEntries(entries) {
-  const clean = entries
-    .filter((e) => e.quantity > 0)
-    .map((e) => ({
-      bookId: e.bookId,
-      quantity: Math.min(99, Math.max(1, Math.floor(e.quantity))),
-    }))
-
-  const items = clean.map(({ bookId, quantity }) => ({
-    book: resolveBookForCart(bookId),
-    quantity,
-  }))
-
-  const subtotal =
-    Math.round(
-      items.reduce((s, i) => s + i.book.price * i.quantity, 0) * 100
-    ) / 100
-
-  let discountAmount = 0
-  let discountLabel = ''
-  if (subtotal >= DISCOUNT_MIN_SUBTOTAL) {
-    discountAmount = Math.round(subtotal * DISCOUNT_RATE * 100) / 100
-    discountLabel = '10% off orders $45+'
-  }
-
-  const totalPrice =
-    Math.round((subtotal - discountAmount) * 100) / 100
-  const totalItems = items.reduce((s, i) => s + i.quantity, 0)
-
-  return {
-    entries: clean,
-    items,
-    subtotal,
-    discountAmount,
-    discountLabel,
-    totalItems,
-    totalPrice,
-  }
+function applyCart(state, cart) {
+  const items = (cart?.items || []).filter((i) => i.book && i.book.isActive !== false)
+  const totals = calcCartTotals(items)
+  state.items = items
+  state.subtotal = totals.subtotal
+  state.tax = totals.tax
+  state.shipping = totals.shipping
+  state.totalItems = totals.totalItems
+  state.totalPrice = totals.total
 }
 
-function persist(entries) {
-  saveCartEntries(entries)
-}
-
-const boot = recalcFromEntries(loadCartEntries())
-
-/** Hydrate cart from localStorage (e.g. after navigation or another tab saved). */
-export const getCart = createAsyncThunk('cart/getCart', async () => {
-  return loadCartEntries()
-})
+export const getCart = createAsyncThunk(
+  'cart/getCart',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await api.get('/cart')
+      return data.cart
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to load cart')
+    }
+  }
+)
 
 export const addToCart = createAsyncThunk(
   'cart/addToCart',
-  async ({ bookId, quantity = 1 }) => {
-    return { bookId, quantity: quantity ?? 1 }
+  async ({ bookId, quantity = 1 }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.post('/cart/add', { bookId, quantity })
+      return data.cart
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to add to cart')
+    }
   }
 )
 
 export const updateCartItem = createAsyncThunk(
   'cart/updateCartItem',
-  async ({ bookId, quantity }) => {
-    return { bookId, quantity }
+  async ({ bookId, quantity }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.put('/cart/update', { bookId, quantity })
+      return data.cart
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update cart')
+    }
   }
 )
 
 export const removeFromCart = createAsyncThunk(
   'cart/removeFromCart',
-  async (bookId) => bookId
+  async (bookId, { rejectWithValue }) => {
+    try {
+      const { data } = await api.delete(`/cart/remove/${bookId}`)
+      return data.cart
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to remove item')
+    }
+  }
 )
 
-export const clearCart = createAsyncThunk('cart/clearCart', async () => null)
+export const clearCart = createAsyncThunk(
+  'cart/clearCart',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await api.delete('/cart/clear')
+      return data.cart
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to clear cart')
+    }
+  }
+)
 
 export const getCartCount = createAsyncThunk(
   'cart/getCartCount',
-  async (_, { getState }) => {
-    return getState().cart.totalItems
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await api.get('/cart/count')
+      return data.count
+    } catch (error) {
+      return rejectWithValue(0)
+    }
   }
 )
 
 const initialState = {
-  entries: boot.entries,
-  items: boot.items,
-  subtotal: boot.subtotal,
-  discountAmount: boot.discountAmount,
-  discountLabel: boot.discountLabel,
-  totalItems: boot.totalItems,
-  totalPrice: boot.totalPrice,
+  items: [],
+  subtotal: 0,
+  tax: 0,
+  shipping: 0,
+  totalItems: 0,
+  totalPrice: 0,
   isLoading: false,
   error: null,
 }
@@ -104,102 +104,52 @@ const cartSlice = createSlice({
       state.error = null
     },
     clearCartState: (state) => {
-      const next = recalcFromEntries([])
-      Object.assign(state, next)
-      persist([])
+      state.items = []
+      state.subtotal = 0
+      state.tax = 0
+      state.shipping = 0
+      state.totalItems = 0
+      state.totalPrice = 0
     },
   },
   extraReducers: (builder) => {
+    const pending = (state) => {
+      state.isLoading = true
+      state.error = null
+    }
+    const rejected = (state, action) => {
+      state.isLoading = false
+      state.error = action.payload
+    }
+
     builder
+      .addCase(getCart.pending, pending)
       .addCase(getCart.fulfilled, (state, action) => {
         state.isLoading = false
-        const next = recalcFromEntries(action.payload)
-        state.entries = next.entries
-        state.items = next.items
-        state.subtotal = next.subtotal
-        state.discountAmount = next.discountAmount
-        state.discountLabel = next.discountLabel
-        state.totalItems = next.totalItems
-        state.totalPrice = next.totalPrice
-        state.error = null
+        applyCart(state, action.payload)
       })
-      .addCase(getCart.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload
-      })
+      .addCase(getCart.rejected, rejected)
+      .addCase(addToCart.pending, pending)
       .addCase(addToCart.fulfilled, (state, action) => {
-        const { bookId, quantity } = action.payload
-        const book = resolveBookForCart(bookId)
-        const maxPerLine = Math.min(10, book.stock ?? 10)
-        let entries = state.entries.map((e) => ({ ...e }))
-        const i = entries.findIndex((e) => e.bookId === bookId)
-        if (i >= 0) {
-          const nextQty = Math.min(
-            maxPerLine,
-            entries[i].quantity + quantity
-          )
-          entries[i] = { bookId, quantity: nextQty }
-        } else {
-          entries.push({
-            bookId,
-            quantity: Math.min(maxPerLine, Math.max(1, quantity)),
-          })
-        }
-        const next = recalcFromEntries(entries)
-        state.entries = next.entries
-        state.items = next.items
-        state.subtotal = next.subtotal
-        state.discountAmount = next.discountAmount
-        state.discountLabel = next.discountLabel
-        state.totalItems = next.totalItems
-        state.totalPrice = next.totalPrice
-        persist(entries)
+        state.isLoading = false
+        applyCart(state, action.payload)
       })
+      .addCase(addToCart.rejected, rejected)
+      .addCase(updateCartItem.pending, pending)
       .addCase(updateCartItem.fulfilled, (state, action) => {
-        let { bookId, quantity } = action.payload
-        let entries = state.entries.map((e) => ({ ...e }))
-        if (quantity <= 0) {
-          entries = entries.filter((e) => e.bookId !== bookId)
-        } else {
-          const book = resolveBookForCart(bookId)
-          const maxPerLine = Math.min(10, book.stock ?? 10)
-          quantity = Math.min(maxPerLine, quantity)
-          const i = entries.findIndex((e) => e.bookId === bookId)
-          if (i >= 0) entries[i] = { bookId, quantity }
-        }
-        const next = recalcFromEntries(entries)
-        state.entries = next.entries
-        state.items = next.items
-        state.subtotal = next.subtotal
-        state.discountAmount = next.discountAmount
-        state.discountLabel = next.discountLabel
-        state.totalItems = next.totalItems
-        state.totalPrice = next.totalPrice
-        persist(entries)
+        state.isLoading = false
+        applyCart(state, action.payload)
       })
+      .addCase(updateCartItem.rejected, rejected)
+      .addCase(removeFromCart.pending, pending)
       .addCase(removeFromCart.fulfilled, (state, action) => {
-        const bookId = action.payload
-        const entries = state.entries.filter((e) => e.bookId !== bookId)
-        const next = recalcFromEntries(entries)
-        state.entries = next.entries
-        state.items = next.items
-        state.subtotal = next.subtotal
-        state.discountAmount = next.discountAmount
-        state.discountLabel = next.discountLabel
-        state.totalItems = next.totalItems
-        state.totalPrice = next.totalPrice
-        persist(entries)
+        state.isLoading = false
+        applyCart(state, action.payload)
       })
-      .addCase(clearCart.fulfilled, (state) => {
-        const next = recalcFromEntries([])
-        state.entries = next.entries
-        state.items = next.items
-        state.subtotal = next.subtotal
-        state.discountAmount = next.discountAmount
-        state.discountLabel = next.discountLabel
-        state.totalItems = next.totalItems
-        state.totalPrice = next.totalPrice
-        persist([])
+      .addCase(removeFromCart.rejected, rejected)
+      .addCase(clearCart.fulfilled, (state, action) => {
+        state.isLoading = false
+        applyCart(state, action.payload)
       })
       .addCase(getCartCount.fulfilled, (state, action) => {
         state.totalItems = action.payload

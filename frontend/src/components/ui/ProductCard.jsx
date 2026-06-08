@@ -4,13 +4,8 @@ import { Card, CardContent } from './Card'
 import Badge from './Badge'
 import Button from './Button'
 import { formatPrice } from '../../utils/format'
+import { coverUrl } from '../../utils/bookHelpers'
 import { cn } from '../../utils/cn'
-
-function bookCoverUrl(book) {
-  const first = book.images?.[0]
-  if (!first) return '/placeholder-book.jpg'
-  return typeof first === 'string' ? first : first.url || '/placeholder-book.jpg'
-}
 
 export default function ProductCard({
   book,
@@ -32,7 +27,7 @@ export default function ProductCard({
       <Link to={`/books/${book._id}`} className="block shrink-0">
         <div className="relative aspect-[3/4] overflow-hidden bg-surface-muted">
           <img
-            src={bookCoverUrl(book)}
+            src={coverUrl(book)}
             alt={book.title}
             className="h-full w-full object-cover transition-transform duration-200 ease-smooth group-hover:scale-[1.04] motion-reduce:group-hover:scale-100"
           />
@@ -47,12 +42,12 @@ export default function ProductCard({
       <CardContent className="flex flex-1 flex-col gap-2">
         <Link
           to={`/books/${book._id}`}
-          className="text-body-sm font-semibold text-neutral-900 line-clamp-2 transition-colors hover:text-primary-600"
+          className="text-body-sm font-semibold text-neutral-900 line-clamp-2 transition-colors hover:text-primary-800"
         >
           {book.title}
         </Link>
-        <p className="text-small text-neutral-500">by {book.author}</p>
-        <div className="flex items-center gap-1 text-small text-neutral-600">
+        <p className="text-small text-ink-muted">by {book.author}</p>
+        <div className="flex items-center gap-1 text-small text-ink-muted">
           <div className="flex items-center text-amber-500">
             {[...Array(5)].map((_, i) => (
               <Star
