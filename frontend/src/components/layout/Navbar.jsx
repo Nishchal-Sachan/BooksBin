@@ -10,11 +10,11 @@ import {
   X,
   BookOpen,
   LogOut,
-  Settings,
   Package,
   LayoutGrid,
 } from 'lucide-react'
 import { logout } from '../../store/slices/authSlice'
+import { isBuyer } from '../../utils/roles'
 import PageContainer from './PageContainer'
 import Button from '../ui/Button'
 import { cn } from '../../utils/cn'
@@ -28,6 +28,8 @@ const Navbar = () => {
   const navigate = useNavigate()
   const { user, isAuthenticated } = useSelector((state) => state.auth)
   const { totalItems } = useSelector((state) => state.cart)
+
+  const showShopperTools = !isAuthenticated || isBuyer(user)
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -108,27 +110,31 @@ const Navbar = () => {
           </form>
 
           <div className="flex flex-1 items-center justify-end gap-0.5 md:flex-none md:gap-1">
-            <Link
-              to="/cart"
-              className="relative rounded-lg p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-primary-800"
-              aria-label={`Cart${totalItems > 0 ? `, ${totalItems} items` : ''}`}
-            >
-              <ShoppingCart className="h-6 w-6" />
-              {totalItems > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-600 px-1 text-small font-bold text-white">
-                  {totalItems}
-                </span>
-              )}
-            </Link>
+            {showShopperTools && (
+              <>
+                <Link
+                  to="/cart"
+                  className="relative rounded-lg p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-primary-800"
+                  aria-label={`Cart${totalItems > 0 ? `, ${totalItems} items` : ''}`}
+                >
+                  <ShoppingCart className="h-6 w-6" />
+                  {totalItems > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-600 px-1 text-small font-bold text-white">
+                      {totalItems}
+                    </span>
+                  )}
+                </Link>
 
-            {isAuthenticated && (
-              <Link
-                to="/wishlist"
-                className="rounded-lg p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-primary-800"
-                aria-label="Wishlist"
-              >
-                <Heart className="h-6 w-6" />
-              </Link>
+                {isAuthenticated && (
+                  <Link
+                    to="/wishlist"
+                    className="rounded-lg p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-primary-800"
+                    aria-label="Wishlist"
+                  >
+                    <Heart className="h-6 w-6" />
+                  </Link>
+                )}
+              </>
             )}
 
             {isAuthenticated ? (
@@ -151,45 +157,25 @@ const Navbar = () => {
 
                 {isUserMenuOpen && (
                   <div className="absolute right-0 mt-2 w-56 rounded-xl border border-neutral-200 bg-white py-1 shadow-elevated">
-                    <Link to="/account" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
-                      <LayoutGrid className="h-4 w-4" />
-                      My account
-                    </Link>
-                    <Link to="/orders" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
-                      <Package className="h-4 w-4" />
-                      Orders
-                    </Link>
-                    <Link to="/profile" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
-                      <User className="h-4 w-4" />
-                      Profile
-                    </Link>
-                    {user?.role === 'user' && (
-                      <Link to="/wishlist" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
-                        <Heart className="h-4 w-4" />
-                        Wishlist
-                      </Link>
-                    )}
-                    {user?.role === 'seller' && (
+                    {showShopperTools && (
                       <>
-                        <Link to="/seller/dashboard" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
-                          <Settings className="h-4 w-4" />
-                          Seller dashboard
+                        <Link to="/account" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
+                          <LayoutGrid className="h-4 w-4" />
+                          My account
                         </Link>
-                        <Link to="/seller/books" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
-                          <BookOpen className="h-4 w-4" />
-                          Manage catalog
-                        </Link>
-                        <Link to="/seller/orders" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
+                        <Link to="/orders" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
                           <Package className="h-4 w-4" />
-                          Seller orders
+                          Orders
+                        </Link>
+                        <Link to="/profile" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
+                          <User className="h-4 w-4" />
+                          Profile
+                        </Link>
+                        <Link to="/wishlist" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
+                          <Heart className="h-4 w-4" />
+                          Wishlist
                         </Link>
                       </>
-                    )}
-                    {user?.role === 'admin' && (
-                      <Link to="/admin/dashboard" className={navLinkClass} onClick={() => setIsUserMenuOpen(false)}>
-                        <Settings className="h-4 w-4" />
-                        Admin
-                      </Link>
                     )}
                     <button type="button" onClick={handleLogout} className={cn(navLinkClass, 'w-full border-t border-neutral-200 text-left')}>
                       <LogOut className="h-4 w-4" />
@@ -248,7 +234,7 @@ const Navbar = () => {
                   Sign in
                 </Link>
               )}
-              {isAuthenticated && (
+              {isAuthenticated && showShopperTools && (
                 <>
                   <Link to="/account" className={navLinkClass} onClick={() => setIsMenuOpen(false)}>My account</Link>
                   <Link to="/orders" className={navLinkClass} onClick={() => setIsMenuOpen(false)}>Orders</Link>

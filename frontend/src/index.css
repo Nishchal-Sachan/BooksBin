@@ -42,7 +42,7 @@
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-body-sm text-ink shadow-soft transition-colors duration-200 ease-smooth placeholder:text-neutral-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:opacity-70;
+    @apply w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-body-sm text-ink shadow-soft transition-colors duration-200 ease-smooth placeholder:text-neutral-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/25 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:opacity-70;
   }
 
   .input-field-error {
@@ -154,5 +154,27 @@
 
   .scrollbar-landing::-webkit-scrollbar-thumb:hover {
     @apply bg-primary-400;
+  }
+
+  .auth-brand-panel {
+    @apply relative hidden w-[42%] shrink-0 flex-col justify-between overflow-hidden bg-primary-900 p-10 text-white xl:w-[44%] xl:p-14 lg:flex;
+  }
+
+  .auth-brand-pattern {
+    @apply pointer-events-none absolute inset-0 opacity-[0.12];
+    background-image:
+      linear-gradient(160deg, transparent 40%, rgba(255, 255, 255, 0.06) 100%),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 28px,
+        rgba(255, 255, 255, 0.08) 28px,
+        rgba(255, 255, 255, 0.08) 30px
+      );
+  }
+
+  .auth-form-panel {
+    @apply flex flex-1 flex-col justify-center bg-surface px-6 py-12 sm:px-10 lg:px-16 xl:px-20;
+    box-shadow: -12px 0 40px rgba(28, 25, 23, 0.04);
   }
 }

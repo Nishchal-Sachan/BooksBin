@@ -3,11 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff, Lock, CheckCircle, BookOpen } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle } from 'lucide-react'
 import api from '../../store/api/api'
 import toast from 'react-hot-toast'
-import { Card } from '../../components/ui/Card'
+import AuthLayout from '../../components/auth/AuthLayout'
 import Button from '../../components/ui/Button'
+import { cn } from '../../utils/cn'
 
 const resetPasswordSchema = z
   .object({
@@ -48,7 +49,7 @@ const ResetPassword = () => {
         newPassword: data.newPassword,
       })
       setIsSuccess(true)
-      toast.success('Password reset successfully!')
+      toast.success('Password updated')
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to reset password')
     } finally {
@@ -58,150 +59,94 @@ const ResetPassword = () => {
 
   if (isSuccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12 sm:px-6 lg:px-8">
-        <Card className="w-full max-w-md space-y-6 p-8 text-center shadow-card">
-          <CheckCircle className="mx-auto h-12 w-12 text-success" aria-hidden />
-          <h2 className="text-h1">Password reset successful</h2>
-          <p className="text-body-sm text-ink-muted">
-            Your password has been successfully reset. You can now sign in with
-            your new password.
-          </p>
-          <Link to="/login" className="link-primary font-medium">
-            Sign in to your account
-          </Link>
-        </Card>
-      </div>
+      <AuthLayout
+        title="You're all set"
+        subtitle="Your password has been updated. Sign in with your new credentials."
+        footer={
+          <Button as={Link} to="/login" size="lg" className="w-full">
+            Sign in
+          </Button>
+        }
+      >
+        <div className="flex justify-center rounded-2xl border border-neutral-200 bg-surface-subtle py-10">
+          <CheckCircle className="h-14 w-14 text-success" />
+        </div>
+      </AuthLayout>
     )
   }
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12 sm:px-6 lg:px-8">
-        <Card className="w-full max-w-md space-y-6 p-8 text-center shadow-card">
-          <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
-          <h2 className="text-h1">Invalid reset link</h2>
-          <p className="text-body-sm text-ink-muted">
-            This password reset link is invalid or has expired. Please request
-            a new one.
-          </p>
-          <Link to="/forgot-password" className="link-primary font-medium">
-            Request new reset link
-          </Link>
-        </Card>
-      </div>
+      <AuthLayout
+        title="Link expired"
+        subtitle="This reset link is invalid or has already been used. Request a new one to continue."
+        footer={
+          <Button as={Link} to="/forgot-password" size="lg" className="w-full">
+            Request new link
+          </Button>
+        }
+      />
     )
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md p-8 shadow-card">
-        <div className="text-center">
-          <BookOpen className="mx-auto h-12 w-12 text-primary-600" aria-hidden />
-          <h2 className="mt-6 text-h1">Reset your password</h2>
-          <p className="mt-2 text-body-sm text-ink-muted">
-            Enter your new password below.
-          </p>
-        </div>
-        <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <label
-              htmlFor="newPassword"
-              className="mb-2 block text-small font-medium text-neutral-700"
-            >
-              New password
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <Lock className="h-5 w-5 text-neutral-400" />
-              </div>
-              <input
-                {...register('newPassword')}
-                id="newPassword"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                className={`input-field pl-10 pr-11 ${errors.newPassword ? 'input-field-error' : ''}`}
-                placeholder="Enter new password"
-              />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-ink-muted"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-5 w-5" />
-                ) : (
-                  <Eye className="h-5 w-5" />
-                )}
-              </button>
-            </div>
-            {errors.newPassword && (
-              <p className="mt-1.5 text-small text-error" role="alert">
-                {errors.newPassword.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="mb-2 block text-small font-medium text-neutral-700"
-            >
-              Confirm new password
-            </label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <Lock className="h-5 w-5 text-neutral-400" />
-              </div>
-              <input
-                {...register('confirmPassword')}
-                id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                className={`input-field pl-10 pr-11 ${errors.confirmPassword ? 'input-field-error' : ''}`}
-                placeholder="Confirm new password"
-              />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-ink-muted"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                aria-label={
-                  showConfirmPassword ? 'Hide password' : 'Show password'
-                }
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="h-5 w-5" />
-                ) : (
-                  <Eye className="h-5 w-5" />
-                )}
-              </button>
-            </div>
-            {errors.confirmPassword && (
-              <p className="mt-1.5 text-small text-error" role="alert">
-                {errors.confirmPassword.message}
-              </p>
-            )}
-          </div>
-
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                Resetting…
-              </span>
-            ) : (
-              'Reset password'
-            )}
-          </Button>
-
-          <div className="text-center">
-            <Link to="/login" className="link-primary font-medium">
-              Back to login
-            </Link>
-          </div>
-        </form>
-      </Card>
+  const pwdField = (id, label, show, toggle, reg, err) => (
+    <div>
+      <label htmlFor={id} className="mb-2 block text-small font-semibold text-ink-muted">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          {...reg}
+          id={id}
+          type={show ? 'text' : 'password'}
+          autoComplete="new-password"
+          className={cn('input-field pr-11', err && 'input-field-error')}
+          placeholder="••••••••"
+        />
+        <button
+          type="button"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-400 hover:text-ink-muted"
+          onClick={toggle}
+        >
+          {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+        </button>
+      </div>
+      {err && <p className="mt-1.5 text-small text-error">{err}</p>}
     </div>
+  )
+
+  return (
+    <AuthLayout
+      title="Choose a new password"
+      subtitle="Use at least 6 characters. Pick something you haven't used on BooksBin before."
+      footer={
+        <Link to="/login" className="link-primary text-center font-semibold">
+          Back to sign in
+        </Link>
+      }
+    >
+      <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+        {pwdField(
+          'newPassword',
+          'New password',
+          showPassword,
+          () => setShowPassword(!showPassword),
+          register('newPassword'),
+          errors.newPassword?.message
+        )}
+        {pwdField(
+          'confirmPassword',
+          'Confirm password',
+          showConfirmPassword,
+          () => setShowConfirmPassword(!showConfirmPassword),
+          register('confirmPassword'),
+          errors.confirmPassword?.message
+        )}
+        <Button type="submit" disabled={isLoading} size="lg" className="w-full">
+          {isLoading ? 'Updating…' : 'Update password'}
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }
 

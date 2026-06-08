@@ -84,7 +84,7 @@ function EmptyCatalog() {
             Browse categories
           </Button>
           <Button as={Link} to="/register" variant="outline">
-            Create buyer account
+            Join BooksBin
           </Button>
         </div>
       </div>

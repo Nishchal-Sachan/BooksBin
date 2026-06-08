@@ -4,8 +4,7 @@ import { login } from '../../store/slices/authSlice'
 import { toast } from 'react-hot-toast'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useEffect } from 'react'
-import { BookOpen } from 'lucide-react'
-import { Card } from '../../components/ui/Card'
+import AuthLayout from '../../components/auth/AuthLayout'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 
@@ -46,43 +45,51 @@ const Login = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-12">
-      <Card className="w-full max-w-md border-neutral-200 p-8 shadow-card">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary-800 text-white">
-          <BookOpen className="h-6 w-6" aria-hidden />
-        </div>
-        <h2 className="mt-5 text-center text-h1">Sign in</h2>
-        <p className="mt-2 text-center text-body-sm text-ink-muted">
-          Buyers, sellers, and staff all sign in here. Your dashboard opens based on your account role.
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Sign in to continue shopping, track orders, and manage your library."
+      footer={
+        <p className="text-center text-body-sm text-ink-muted">
+          New to BooksBin?{' '}
+          <Link to="/register" className="link-primary font-semibold">
+            Create an account
+          </Link>
         </p>
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5">
+      }
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <Input
+          label="Email"
+          type="email"
+          {...register('email', { required: 'Email is required' })}
+          error={errors.email?.message}
+          autoComplete="email"
+          placeholder="you@example.com"
+        />
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label htmlFor="password" className="text-small font-semibold text-ink-muted">
+              Password
+            </label>
+            <Link to="/forgot-password" className="text-small font-medium text-primary-700 hover:text-primary-900">
+              Forgot password?
+            </Link>
+          </div>
           <Input
-            label="Email"
-            type="email"
-            {...register('email', { required: 'Email is required' })}
-            error={errors.email?.message}
-            autoComplete="email"
-          />
-          <Input
-            label="Password"
+            id="password"
             type="password"
             {...register('password', { required: 'Password is required' })}
             error={errors.password?.message}
             autoComplete="current-password"
+            placeholder="••••••••"
+            label={null}
           />
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-body-sm text-ink-muted">
-          New here?{' '}
-          <Link to="/register" className="link-primary font-medium">
-            Create an account
-          </Link>
-        </p>
-      </Card>
-    </div>
+        </div>
+        <Button type="submit" disabled={isLoading} size="lg" className="w-full">
+          {isLoading ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }
 

@@ -1,11 +1,14 @@
 import { useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { getCurrentUser } from './store/slices/authSlice'
 import { getCart, clearCartState } from './store/slices/cartSlice'
+import { isBuyer } from './utils/roles'
 
 // Layout components
 import Navbar from './components/layout/Navbar'
+import SellerNavbar from './components/layout/SellerNavbar'
+import AdminNavbar from './components/layout/AdminNavbar'
 import Footer from './components/layout/Footer'
 
 // Public pages
@@ -38,6 +41,7 @@ import SellerBooks from './pages/seller/Books'
 import SellerOrders from './pages/seller/Orders'
 import AddBook from './pages/seller/AddBook'
 import EditBook from './pages/seller/EditBook'
+import SellerSettings from './pages/seller/Settings'
 
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard'
@@ -47,24 +51,44 @@ import AdminOrders from './pages/admin/Orders'
 
 // Protected route component
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import BuyerOnlyRoute from './components/auth/BuyerOnlyRoute'
+import StorefrontGuard from './components/auth/StorefrontGuard'
 import PageContainer from './components/layout/PageContainer'
 import Spinner from './components/ui/Spinner'
 
+function AppShell() {
+  const location = useLocation()
+  const isSellerPortal = location.pathname.startsWith('/seller')
+  const isAdminPortal = location.pathname.startsWith('/admin')
+  const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'].some(
+    (p) => location.pathname.startsWith(p)
+  )
+  const showStorefrontChrome = !isSellerPortal && !isAdminPortal
+
+  if (isSellerPortal) return <SellerNavbar />
+  if (isAdminPortal) return <AdminNavbar />
+  if (isAuthPage) return null
+  return <Navbar />
+}
+
 function App() {
   const dispatch = useDispatch()
-  const { isAuthenticated, isLoading } = useSelector((state) => state.auth)
+  const location = useLocation()
+  const { isAuthenticated, isLoading, user } = useSelector((state) => state.auth)
+  const isSellerPortal = location.pathname.startsWith('/seller')
+  const isAdminPortal = location.pathname.startsWith('/admin')
 
   useEffect(() => {
     dispatch(getCurrentUser())
   }, [dispatch])
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && isBuyer(user)) {
       dispatch(getCart())
     } else {
       dispatch(clearCartState())
     }
-  }, [dispatch, isAuthenticated])
+  }, [dispatch, isAuthenticated, user])
 
   if (isLoading) {
     return (
@@ -76,14 +100,14 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
+      <AppShell />
       <main className="flex-1 w-full">
         <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/books" element={<Books />} />
-          <Route path="/books/:id" element={<BookDetail />} />
-          <Route path="/search" element={<Search />} />
+          {/* Storefront — shoppers only; sellers/admins go to their portal */}
+          <Route path="/" element={<StorefrontGuard><Home /></StorefrontGuard>} />
+          <Route path="/books" element={<StorefrontGuard><Books /></StorefrontGuard>} />
+          <Route path="/books/:id" element={<StorefrontGuard><BookDetail /></StorefrontGuard>} />
+          <Route path="/search" element={<StorefrontGuard><Search /></StorefrontGuard>} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -91,87 +115,17 @@ function App() {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-          {/* Protected user routes */}
-          <Route
-            path="/account"
-            element={
-              <ProtectedRoute>
-                <UserDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/addresses"
-            element={
-              <ProtectedRoute>
-                <Addresses />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/orders/:orderId"
-            element={
-              <ProtectedRoute>
-                <OrderDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/orders"
-            element={
-              <ProtectedRoute>
-                <Orders />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/wishlist"
-            element={
-              <ProtectedRoute>
-                <Wishlist />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/my-reviews"
-            element={
-              <ProtectedRoute>
-                <MyReviews />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/cart"
-            element={
-              <ProtectedRoute>
-                <Cart />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/checkout"
-            element={
-              <ProtectedRoute>
-                <Checkout />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/order-success/:orderId"
-            element={
-              <ProtectedRoute>
-                <OrderSuccess />
-              </ProtectedRoute>
-            }
-          />
+          {/* Buyer account & checkout — not for sellers */}
+          <Route path="/account" element={<BuyerOnlyRoute><UserDashboard /></BuyerOnlyRoute>} />
+          <Route path="/profile" element={<BuyerOnlyRoute><Profile /></BuyerOnlyRoute>} />
+          <Route path="/addresses" element={<BuyerOnlyRoute><Addresses /></BuyerOnlyRoute>} />
+          <Route path="/orders/:orderId" element={<BuyerOnlyRoute><OrderDetail /></BuyerOnlyRoute>} />
+          <Route path="/orders" element={<BuyerOnlyRoute><Orders /></BuyerOnlyRoute>} />
+          <Route path="/wishlist" element={<BuyerOnlyRoute><Wishlist /></BuyerOnlyRoute>} />
+          <Route path="/my-reviews" element={<BuyerOnlyRoute><MyReviews /></BuyerOnlyRoute>} />
+          <Route path="/cart" element={<BuyerOnlyRoute><Cart /></BuyerOnlyRoute>} />
+          <Route path="/checkout" element={<BuyerOnlyRoute><Checkout /></BuyerOnlyRoute>} />
+          <Route path="/order-success/:orderId" element={<BuyerOnlyRoute><OrderSuccess /></BuyerOnlyRoute>} />
 
           {/* Seller routes */}
           <Route
@@ -211,6 +165,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['seller', 'admin']}>
                 <EditBook />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/seller/settings"
+            element={
+              <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                <SellerSettings />
               </ProtectedRoute>
             }
           />
@@ -265,7 +227,7 @@ function App() {
           />
         </Routes>
       </main>
-      <Footer />
+      {!isSellerPortal && !isAdminPortal && <Footer />}
     </div>
   )
 }

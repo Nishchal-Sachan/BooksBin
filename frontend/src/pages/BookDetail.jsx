@@ -26,6 +26,7 @@ import BookListingCard from '../components/books/BookListingCard'
 import StarDisplay from '../components/reviews/StarDisplay'
 import BookReviewsSection from '../components/reviews/BookReviewsSection'
 import { coverUrl } from '../utils/bookHelpers'
+import { isBuyer } from '../utils/roles'
 
 function BookDetailSkeleton() {
   return (
@@ -58,7 +59,8 @@ export default function BookDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { isAuthenticated } = useSelector((s) => s.auth)
+  const { isAuthenticated, user } = useSelector((s) => s.auth)
+  const showShopActions = !isAuthenticated || isBuyer(user)
 
   const [book, setBook] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -98,14 +100,14 @@ export default function BookDetail() {
   }, [id])
 
   useEffect(() => {
-    if (!isAuthenticated || !book?._id) return
+    if (!showShopActions || !book?._id) return
     api.get('/users/wishlist')
       .then((res) => {
         const ids = (res.data.wishlist || []).map((b) => b._id)
         setWishActive(ids.includes(book._id))
       })
       .catch(() => {})
-  }, [isAuthenticated, book?._id])
+  }, [showShopActions, book?._id])
 
   const gallery = book?.gallery?.length ? book.gallery : book?.images || []
   const mainSrc =
@@ -349,73 +351,84 @@ export default function BookDetail() {
                     )}
                   </div>
 
-                  <div className="flex gap-2 sm:flex-col sm:items-end">
-                    <button
-                      type="button"
-                      onClick={handleWishlist}
-                      disabled={wishBusy}
-                      aria-pressed={wishActive}
-                      className={cn(
-                        'flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-200 bg-white text-ink-muted shadow-soft transition-all hover:border-rose-200 hover:text-rose-600',
-                        wishActive &&
-                          'border-rose-200 bg-rose-50 text-rose-600'
-                      )}
-                      aria-label="Wishlist"
-                    >
-                      <Heart
+                  {showShopActions && (
+                    <div className="flex gap-2 sm:flex-col sm:items-end">
+                      <button
+                        type="button"
+                        onClick={handleWishlist}
+                        disabled={wishBusy}
+                        aria-pressed={wishActive}
                         className={cn(
-                          'h-5 w-5',
-                          wishActive && 'fill-rose-600 text-rose-600'
+                          'flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-200 bg-white text-ink-muted shadow-soft transition-all hover:border-rose-200 hover:text-rose-600',
+                          wishActive && 'border-rose-200 bg-rose-50 text-rose-600'
                         )}
-                        fill={wishActive ? 'currentColor' : 'none'}
-                      />
-                    </button>
-                  </div>
+                        aria-label="Wishlist"
+                      >
+                        <Heart
+                          className={cn(
+                            'h-5 w-5',
+                            wishActive && 'fill-rose-600 text-rose-600'
+                          )}
+                          fill={wishActive ? 'currentColor' : 'none'}
+                        />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-8 flex flex-col gap-4 border-t border-neutral-100 pt-8 sm:flex-row sm:flex-wrap sm:items-center">
-                  <div className="inline-flex items-center rounded-xl border border-neutral-200 bg-white shadow-soft">
-                    <button
-                      type="button"
-                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      className="rounded-l-xl px-4 py-3 text-lg font-medium text-ink-muted transition-colors hover:bg-neutral-50"
-                    >
-                      −
-                    </button>
-                    <span className="min-w-[3.5rem] px-4 py-3 text-center text-body font-semibold tabular-nums">
-                      {quantity}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setQuantity((q) => Math.min(maxQty, q + 1))
-                      }
-                      className="rounded-r-xl px-4 py-3 text-lg font-medium text-ink-muted transition-colors hover:bg-neutral-50"
-                    >
-                      +
-                    </button>
-                  </div>
+                {showShopActions ? (
+                  <div className="mt-8 flex flex-col gap-4 border-t border-neutral-100 pt-8 sm:flex-row sm:flex-wrap sm:items-center">
+                    <div className="inline-flex items-center rounded-xl border border-neutral-200 bg-white shadow-soft">
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        className="rounded-l-xl px-4 py-3 text-lg font-medium text-ink-muted transition-colors hover:bg-neutral-50"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[3.5rem] px-4 py-3 text-center text-body font-semibold tabular-nums">
+                        {quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQuantity((q) => Math.min(maxQty, q + 1))
+                        }
+                        className="rounded-r-xl px-4 py-3 text-lg font-medium text-ink-muted transition-colors hover:bg-neutral-50"
+                      >
+                        +
+                      </button>
+                    </div>
 
-                  <Button
-                    size="lg"
-                    disabled={book.stock <= 0}
-                    onClick={handleAddToCart}
-                    className="min-h-[3rem] flex-1 gap-2 sm:min-w-[200px]"
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    Add to cart
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    disabled={book.stock <= 0}
-                    onClick={handleBuyNow}
-                    className="min-h-[3rem] flex-1 gap-2 border-neutral-300 bg-white/80 sm:min-w-[200px]"
-                  >
-                    <ShoppingBag className="h-5 w-5" />
-                    Buy now
-                  </Button>
-                </div>
+                    <Button
+                      size="lg"
+                      disabled={book.stock <= 0}
+                      onClick={handleAddToCart}
+                      className="min-h-[3rem] flex-1 gap-2 sm:min-w-[200px]"
+                    >
+                      <ShoppingCart className="h-5 w-5" />
+                      Add to cart
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      disabled={book.stock <= 0}
+                      onClick={handleBuyNow}
+                      className="min-h-[3rem] flex-1 gap-2 border-neutral-300 bg-white/80 sm:min-w-[200px]"
+                    >
+                      <ShoppingBag className="h-5 w-5" />
+                      Buy now
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="mt-8 border-t border-neutral-100 pt-8 text-body-sm text-ink-muted">
+                    Stock: {book.stock} units · Manage pricing and inventory from your{' '}
+                    <Link to="/seller/books" className="link-primary font-medium">
+                      seller catalog
+                    </Link>
+                    .
+                  </p>
+                )}
 
                 <ul className="mt-8 grid gap-3 sm:grid-cols-3">
                   <li className="flex items-start gap-2 rounded-xl bg-white/60 px-3 py-2.5 text-small text-ink-muted">
