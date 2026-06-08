@@ -3,10 +3,26 @@ const REFRESH_COOKIE = 'refreshToken'
 
 const isProduction = process.env.NODE_ENV === 'production'
 
+// Frontend and API on different domains (e.g. booksbin.store + *.onrender.com)
+// require SameSite=None so cookies are sent on cross-origin API requests.
+function isCrossOriginDeployment() {
+  if (!isProduction) return false
+  const frontend = (process.env.FRONTEND_URL || '').split(',')[0]?.trim()
+  if (!frontend) return false
+  try {
+    const frontHost = new URL(frontend).hostname
+    return !frontHost.includes('localhost') && !frontHost.includes('127.0.0.1')
+  } catch {
+    return false
+  }
+}
+
+const crossOrigin = isCrossOriginDeployment()
+
 const baseCookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: isProduction ? 'strict' : 'lax',
+  sameSite: crossOrigin ? 'none' : isProduction ? 'strict' : 'lax',
   path: '/',
 }
 

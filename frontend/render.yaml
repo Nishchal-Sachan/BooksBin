@@ -1,0 +1,15 @@
+# Render Static Site — BooksBin frontend
+# Dashboard: Static Site → Settings → use this or link repo with render.yaml
+services:
+  - type: web
+    name: booksbin-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
